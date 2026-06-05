@@ -7,13 +7,13 @@ const dbConfig = {
   user: process.env.DB_USER || process.env.SUPABASE_USER,
   password: process.env.DB_PASSWORD || process.env.SUPABASE_PASSWORD,
   database: process.env.DB_DATABASE || process.env.SUPABASE_DATABASE,
-  ssl: { rejectUnauthorized: false }, // Necessário para Supabase
+  ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000,
   max: 20,
 };
 
-if (!dbConfig.host || !dbConfig.user || !dbConfig.database) {
+if (!dbConfig.host || !dbConfig.user || !dbConfig.password || !dbConfig.database) {
   console.error(
     "Erro de configuração do banco de dados: verifique as variáveis de ambiente do Supabase."
   );
@@ -21,7 +21,6 @@ if (!dbConfig.host || !dbConfig.user || !dbConfig.database) {
 
 const pool = new Pool(dbConfig);
 
-// Testar conexão
 pool.connect((err, client, release) => {
   if (err) {
     console.error("Erro ao conectar com o Supabase:", err.message || err);
