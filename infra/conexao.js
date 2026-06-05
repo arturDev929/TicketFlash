@@ -26,7 +26,6 @@ pool.connect((err, client, release) => {
     console.error("Erro ao conectar com o Supabase:", err.message || err);
     return;
   }
-  console.log("Conectado ao Supabase com sucesso!");
   release();
 });
 

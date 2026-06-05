@@ -67,7 +67,6 @@ router.post("/register",verificarToken, async (req, res) => {
         numero_funcionario
     } = req.body;
 
-    // Validações básicas
     if (!nome_completo || !email || !telefone || !tipo_utilizador) {
         return res.status(400).json({
             sucesso: false,
@@ -75,7 +74,6 @@ router.post("/register",verificarToken, async (req, res) => {
         });
     }
 
-    // Validar tipo de utilizador
     const tiposValidos = ['cliente', 'funcionario', 'administrador'];
     if (!tiposValidos.includes(tipo_utilizador)) {
         return res.status(400).json({
@@ -84,7 +82,6 @@ router.post("/register",verificarToken, async (req, res) => {
         });
     }
 
-    // Validar nome
     if (nome_completo.length < 3) {
         return res.status(400).json({
             sucesso: false,
@@ -92,7 +89,6 @@ router.post("/register",verificarToken, async (req, res) => {
         });
     }
 
-    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
         return res.status(400).json({
@@ -101,7 +97,6 @@ router.post("/register",verificarToken, async (req, res) => {
         });
     }
 
-    // Validar telefone
     const telefoneLimpo = telefone.replace(/\D/g, '');
     if (telefoneLimpo.length < 9 || telefoneLimpo.length > 12) {
         return res.status(400).json({
@@ -110,7 +105,6 @@ router.post("/register",verificarToken, async (req, res) => {
         });
     }
 
-    // Validar campos para funcionario e administrador
     if (tipo_utilizador !== 'cliente') {
         if (!cargo || !numero_funcionario) {
             return res.status(400).json({
@@ -128,7 +122,6 @@ router.post("/register",verificarToken, async (req, res) => {
     }
 
     try {
-        // Verificar se email já existe
         const checkEmailResult = await conexao.query(
             "SELECT email FROM utilizadores WHERE email = $1", 
             [email]
@@ -140,8 +133,6 @@ router.post("/register",verificarToken, async (req, res) => {
                 mensagem: "Email já cadastrado no sistema"
             });
         }
-
-        // Verificar se telefone já existe
         const checkTelefoneResult = await conexao.query(
             "SELECT telefone FROM utilizadores WHERE telefone = $1", 
             [telefone]
@@ -153,8 +144,6 @@ router.post("/register",verificarToken, async (req, res) => {
                 mensagem: "Telefone já cadastrado no sistema"
             });
         }
-
-        // Verificar número de funcionário se for funcionario/admin
         if (tipo_utilizador !== 'cliente') {
             const checkFuncResult = await conexao.query(
                 "SELECT numero_funcionario FROM funcionarios WHERE numero_funcionario = $1", 
@@ -169,17 +158,13 @@ router.post("/register",verificarToken, async (req, res) => {
             }
         }
 
-        // Gerar senha temporária
         const senhaTemporaria = gerarSenhaParaEmail();
         
-        // Criptografar senha
         const senhaHash = await criptografarSenha(senhaTemporaria);
         
-        // Gerar IDs
         const id_utilizador = uuidv4();
         const id_funcionario = tipo_utilizador !== 'cliente' ? uuidv4() : null;
 
-        // Inserir utilizador
         const sqlInsert = `
             INSERT INTO utilizadores 
             (id_utilizador, nome_completo, email, senha_hash, tipo_utilizador, telefone, estado_conta, data_cadastro) 
@@ -188,7 +173,6 @@ router.post("/register",verificarToken, async (req, res) => {
 
         await conexao.query(sqlInsert, [id_utilizador, nome_completo, email, senhaHash, tipo_utilizador, telefone]);
 
-        // Inserir funcionario se necessário
         if (tipo_utilizador !== 'cliente') {
             const sqlInsertFunc = `
                 INSERT INTO funcionarios (id_funcionario, id_utilizador, cargo, numero_funcionario) 
@@ -198,7 +182,6 @@ router.post("/register",verificarToken, async (req, res) => {
             await conexao.query(sqlInsertFunc, [id_funcionario, id_utilizador, cargo, numero_funcionario]);
         }
 
-        // Enviar email com a senha
         let emailEnviado = false;
         let erroEmail = null;
         
@@ -212,7 +195,6 @@ router.post("/register",verificarToken, async (req, res) => {
             erroEmail = error.message;
         }
 
-        // Preparar resposta
         const resposta = {
             sucesso: true,
             mensagem: emailEnviado 
@@ -228,14 +210,12 @@ router.post("/register",verificarToken, async (req, res) => {
             }
         };
 
-        // Adicionar campos específicos para funcionario/admin
         if (tipo_utilizador !== 'cliente') {
             resposta.dados.cargo = cargo;
             resposta.dados.numero_funcionario = numero_funcionario;
             resposta.dados.id_funcionario = id_funcionario;
         }
 
-        // Incluir senha apenas em desenvolvimento
         if (process.env.NODE_ENV !== 'production') {
             resposta.senha_temporaria = senhaTemporaria;
             resposta.email_enviado = emailEnviado;
@@ -348,7 +328,6 @@ router.post('/salas',verificarToken, async (req, res) => {
         estado_compra = 'livre'
     } = req.body;
 
-    // Validações
     if (!nome_sala || nome_sala.trim() === '') {
         return res.status(400).json({
             sucesso: false,
@@ -558,6 +537,331 @@ router.post('/salas',verificarToken, async (req, res) => {
             erro: err.message
         });
     }
+});
+
+/**
+ * @swagger
+ * /sessoes:
+ *   post:
+ *     summary: Cria uma nova sessão de cinema
+ *     description: Registra uma nova sessão com filme, sala, horários e preços
+ *     tags: [Sessões]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id_filme
+ *               - id_sala
+ *               - data_hora_inicio
+ *               - data_hora_fim
+ *               - tipo_sessao
+ *               - preco_base
+ *               - preco_vip
+ *               - preco_acessivel
+ *               - estado_sessao
+ *               - criado_por
+ *             properties:
+ *               id_filme:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID do filme
+ *                 example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *               id_sala:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID da sala
+ *                 example: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
+ *               data_hora_inicio:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Data e hora de início da sessão (ISO 8601)
+ *                 example: "2024-12-25T14:00:00Z"
+ *               data_hora_fim:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Data e hora de fim da sessão (ISO 8601)
+ *                 example: "2024-12-25T16:30:00Z"
+ *               tipo_sessao:
+ *                 type: string
+ *                 enum: [2D, 3D, IMAX, 4DX, D-BOX]
+ *                 description: Tipo de sessão
+ *                 example: "2D"
+ *               preco_base:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 description: Preço base do ingresso
+ *                 example: 24.90
+ *               preco_vip:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 description: Preço do ingresso VIP
+ *                 example: 49.90
+ *               preco_acessivel:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 description: Preço do ingresso acessível (meia-entrada)
+ *                 example: 12.45
+ *               estado_sessao:
+ *                 type: string
+ *                 enum: [agendada, em_andamento, concluida, cancelada]
+ *                 description: Estado atual da sessão
+ *                 example: "agendada"
+ *               criado_por:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID do funcionário que criou a sessão
+ *                 example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *               observacoes:
+ *                 type: string
+ *                 description: Observações adicionais sobre a sessão
+ *                 maxLength: 500
+ *                 nullable: true
+ *                 example: "Sessão especial de Natal"
+ *           examples:
+ *             Sessão 2D:
+ *               summary: Sessão tradicional 2D
+ *               value:
+ *                 id_filme: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *                 id_sala: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
+ *                 data_hora_inicio: "2024-12-25T14:00:00Z"
+ *                 data_hora_fim: "2024-12-25T16:30:00Z"
+ *                 tipo_sessao: "2D"
+ *                 preco_base: 24.90
+ *                 preco_vip: 49.90
+ *                 preco_acessivel: 12.45
+ *                 estado_sessao: "agendada"
+ *                 criado_por: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *                 observacoes: "Sessão de estreia"
+ *             Sessão IMAX:
+ *               summary: Sessão IMAX
+ *               value:
+ *                 id_filme: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *                 id_sala: "b4c9d0e2-3f5a-5b6c-9d7e-8f0a2b3c4d5e"
+ *                 data_hora_inicio: "2024-12-25T20:00:00Z"
+ *                 data_hora_fim: "2024-12-25T23:00:00Z"
+ *                 tipo_sessao: "IMAX"
+ *                 preco_base: 49.90
+ *                 preco_vip: 89.90
+ *                 preco_acessivel: 24.95
+ *                 estado_sessao: "agendada"
+ *                 criado_por: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *                 observacoes: ""
+ *     responses:
+ *       201:
+ *         description: Sessão criada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Sessão criada com sucesso"
+ *                 sessao:
+ *                   type: object
+ *                   properties:
+ *                     id_sessao:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "123e4567-e89b-12d3-a456-426614174000"
+ *                     id_filme:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *                     id_sala:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
+ *                     data_hora_inicio:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-25T14:00:00Z"
+ *                     data_hora_fim:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-25T16:30:00Z"
+ *                     tipo_sessao:
+ *                       type: string
+ *                       example: "2D"
+ *                     preco_base:
+ *                       type: number
+ *                       example: 24.90
+ *                     preco_vip:
+ *                       type: number
+ *                       example: 49.90
+ *                     preco_acessivel:
+ *                       type: number
+ *                       example: 12.45
+ *                     estado_sessao:
+ *                       type: string
+ *                       example: "agendada"
+ *                     criado_por:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *                     observacoes:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "Sessão especial de Natal"
+ *       400:
+ *         description: Requisição inválida - Campos obrigatórios faltando
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               sucesso: false
+ *               mensagem: "Preencha todos os campos obrigatórios"
+ *       401:
+ *         description: Não autorizado - Token inválido ou ausente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               erro: "Token não fornecido"
+ *       409:
+ *         description: Conflito - Sala já ocupada no horário
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               sucesso: false
+ *               mensagem: "Sala já possui uma sessão agendada neste horário"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             example:
+ *               sucesso: false
+ *               mensagem: "Erro ao criar sessão"
+ *               erro: "Database connection error"
+ */
+
+router.post('/sessoes', (req, res) => {
+    const {
+        id_filme, 
+        id_sala,
+        data_hora_inicio,
+        data_hora_fim,
+        tipo_sessao,
+        preco_base,
+        preco_vip,
+        preco_acessivel,
+        estado_sessao,
+        criado_por,
+        observacoes
+    } = req.body;
+    
+    const id_sessao = uuidv4();
+
+    // Validação de campos obrigatórios
+    if (!id_filme || !id_sala || !data_hora_inicio || !data_hora_fim || 
+        !tipo_sessao || !preco_base || !preco_vip || !preco_acessivel || 
+        !estado_sessao || !criado_por) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Preencha todos os campos obrigatórios"
+        });
+    }
+
+    // Validação de horário
+    if (new Date(data_hora_inicio) >= new Date(data_hora_fim)) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Data/hora de início deve ser anterior à data/hora de fim"
+        });
+    }
+
+    // Validação de preços
+    if (preco_base <= 0 || preco_vip <= 0 || preco_acessivel <= 0) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Os preços devem ser maiores que zero"
+        });
+    }
+
+    const sqlInsert = `
+        INSERT INTO sessoes (
+            id_sessao, 
+            id_filme, 
+            id_sala, 
+            data_hora_inicio, 
+            data_hora_fim, 
+            tipo_sessao, 
+            preco_base, 
+            preco_vip, 
+            preco_acessivel, 
+            estado_sessao, 
+            criado_por, 
+            observacoes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `;
+
+    conexao.query(sqlInsert, [
+        id_sessao,
+        id_filme,
+        id_sala,
+        data_hora_inicio,
+        data_hora_fim,
+        tipo_sessao,
+        preco_base,
+        preco_vip,
+        preco_acessivel,
+        estado_sessao,
+        criado_por,
+        observacoes || null
+    ], (err) => {
+        if (err) {
+            // Verificar se é erro de conflito de horário
+            if (err.code === '23505') { // Código de violação de unique constraint
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: "Já existe uma sessão agendada para esta sala neste horário",
+                    erro: err.message
+                });
+            }
+            
+            return res.status(500).json({
+                sucesso: false,
+                mensagem: "Erro ao criar sessão",
+                erro: err.message
+            });
+        }
+
+        res.status(201).json({
+            sucesso: true,
+            mensagem: "Sessão criada com sucesso",
+            sessao: { 
+                id_sessao, 
+                id_filme, 
+                id_sala, 
+                data_hora_inicio, 
+                data_hora_fim, 
+                tipo_sessao, 
+                preco_base, 
+                preco_vip, 
+                preco_acessivel, 
+                estado_sessao, 
+                criado_por, 
+                observacoes 
+            }
+        });
+    });
 });
 
 module.exports = router;
