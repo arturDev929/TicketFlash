@@ -51,21 +51,7 @@ router.post("/", (req, res) => {
     }
 
     const sqlUtilizador = `
-        SELECT 
-            u.id_utilizador as id,
-            u.nome_completo as nome,
-            u.email,
-            u.senha_hash as senha,
-            u.tipo_utilizador as tipo,
-            u.telefone as contacto,
-            u.estado_conta,
-            f.id_funcionario,
-            f.cargo,
-            f.numero_funcionario
-        FROM utilizadores u
-        LEFT JOIN funcionarios f ON u.id_utilizador = f.id_utilizador
-        WHERE u.email = $1
-    `;
+        SELECT u.id_utilizador as id, u.nome_completo as nome, u.email, u.senha_hash as senha, u.tipo_utilizador as tipo, u.telefone as contacto,u.estado_conta, f.id_funcionario, f.cargo, f.numero_funcionario FROM utilizadores u LEFT JOIN funcionarios f ON u.id_utilizador = f.id_utilizador WHERE u.email = $1`;
 
     conexao.query(sqlUtilizador, [email], async (err, result) => {
         if (err) {

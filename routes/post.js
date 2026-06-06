@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const conexao = require("../infra/conexao");
-const { criptografarSenha, gerarSenhaParaEmail, gerarCodigo } = require("../utils/senha");
+const { criptografarSenha, gerarSenhaParaEmail, gerarCodigo,gerarId } = require("../utils/senha");
 const { enviarSenhaAcesso } = require("../utils/email");
 const {verificarToken} = require("../middleware/authMiddleware");
 const { v4: uuidv4 } = require("uuid");
@@ -249,7 +249,7 @@ router.post("/register",verificarToken, async (req, res) => {
  * /salas:
  *   post:
  *     summary: Criar uma nova sala com lugares automáticos
- *     description: Registra uma nova sala e cria automaticamente os lugares baseados na capacidade total
+ *     description: Registra uma nova sala e cria automaticamente os lugares baseados na capacidade total. Os lugares são criados com estado_permanente='activo' e estado_compra='livre' por padrão.
  *     tags: [Salas]
  *     requestBody:
  *       required: true
@@ -263,10 +263,11 @@ router.post("/register",verificarToken, async (req, res) => {
  *             properties:
  *               nome_sala:
  *                 type: string
+ *                 description: Nome da sala (deve ser único por tipo de sala)
  *                 example: Sala VIP 1
  *               capacidade_total:
  *                 type: integer
- *                 description: Capacidade total da sala
+ *                 description: Capacidade total da sala (máximo 200 lugares)
  *                 example: 50
  *               tipo_sala:
  *                 type: string
@@ -280,52 +281,159 @@ router.post("/register",verificarToken, async (req, res) => {
  *                 example: operacional
  *               coluna:
  *                 type: integer
- *                 description: Número de colunas (opcional - padrão 10)
+ *                 description: Número de colunas por fila (opcional - padrão 10, mínimo 1, máximo 20)
  *                 example: 10
  *               fila:
  *                 type: integer
  *                 description: Número de filas (opcional - calculado automaticamente se não informado)
  *                 example: 5
- *               tipo_lugar:
- *                 type: string
- *                 enum: [NORMAL, VIP, PREMIUM, ESPECIAL, CAMAROTE]
- *                 description: Tipo do lugar (opcional - padrão vip)
- *                 example: vip
- *               estado_permanente:
- *                 type: string
- *                 enum: [activo, inactivo, manutencao]
- *                 description: Estado permanente do lugar (opcional - padrão activo)
- *                 example: activo
- *               preco_adicional:
- *                 type: number
- *                 description: Preço adicional do lugar (opcional - padrão 0)
- *                 example: 5.00
- *               estado_compra:
- *                 type: string
- *                 enum: [livre, ocupado, reservado, bloqueado]
- *                 description: Estado de compra do lugar (opcional - padrão livre)
- *                 example: livre
  *     responses:
  *       201:
  *         description: Sala criada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: Sala criada com 50 lugares com sucesso
+ *                 sala:
+ *                   type: object
+ *                   properties:
+ *                     id_sala:
+ *                       type: string
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     nome_sala:
+ *                       type: string
+ *                       example: "Sala VIP 1"
+ *                     capacidade_total:
+ *                       type: integer
+ *                       example: 50
+ *                     tipo_sala:
+ *                       type: string
+ *                       example: "VIP"
+ *                     estado_sala:
+ *                       type: string
+ *                       example: "operacional"
+ *                     coluna:
+ *                       type: integer
+ *                       example: 10
+ *                     fila:
+ *                       type: integer
+ *                       example: 5
+ *                 lugares_criados:
+ *                   type: integer
+ *                   example: 50
+ *                 configuracao:
+ *                   type: object
+ *                   properties:
+ *                     colunas:
+ *                       type: integer
+ *                       example: 10
+ *                     filas:
+ *                       type: integer
+ *                       example: 5
+ *                     lugares_por_fila:
+ *                       type: integer
+ *                       example: 10
+ *                     total_lugares:
+ *                       type: integer
+ *                       example: 50
+ *                     capacidade_solicitada:
+ *                       type: integer
+ *                       example: 50
+ *                     diferenca:
+ *                       type: integer
+ *                       example: 0
+ *                 exemplos_lugares:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_lugar:
+ *                         type: string
+ *                       codigo_lugar:
+ *                         type: string
+ *                         example: "A1"
+ *                       fileira:
+ *                         type: string
+ *                         example: "A"
+ *                       numero:
+ *                         type: integer
+ *                         example: 1
+ *                       estado_permanente:
+ *                         type: string
+ *                         example: "activo"
+ *                       estado_compra:
+ *                         type: string
+ *                         example: "livre"
+ *                       codigo:
+ *                         type: string
+ *                         example: "ABC123"
  *       400:
  *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Capacidade total deve ser maior que 0"
+ *       409:
+ *         description: Conflito - Sala já existe
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Já existe uma sala com o nome \"Sala VIP 1\" e tipo \"VIP\""
+ *                 sala_existente:
+ *                   type: object
+ *                   properties:
+ *                     id_sala:
+ *                       type: string
+ *                     nome_sala:
+ *                       type: string
+ *                     tipo_sala:
+ *                       type: string
  *       500:
  *         description: Erro interno
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao criar sala e lugares"
+ *                 erro:
+ *                   type: string
  */
 
 router.post('/salas',verificarToken, async (req, res) => {
     const {
         nome_sala,
         capacidade_total,
-        tipo_sala = 'NORMAL',
-        estado_sala = 'operacional',
-        coluna = 10,
-        fila,
-        tipo_lugar = 'vip',
-        estado_permanente = 'activo',
-        preco_adicional = 0.00,
-        estado_compra = 'livre'
+        tipo_sala,
+        estado_sala,
+        coluna,
+        fila
     } = req.body;
 
     if (!nome_sala || nome_sala.trim() === '') {
@@ -356,41 +464,6 @@ router.post('/salas',verificarToken, async (req, res) => {
         });
     }
 
-    // Validar tipo_lugar
-    const tiposLugarValidos = ['NORMAL', 'VIP', 'PREMIUM', 'ESPECIAL', 'CAMAROTE', 'vip', 'normal'];
-    if (!tiposLugarValidos.includes(tipo_lugar)) {
-        return res.status(400).json({
-            sucesso: false,
-            mensagem: `Tipo de lugar inválido. Use: ${tiposLugarValidos.join(', ')}`
-        });
-    }
-
-    // Validar estado_permanente
-    const estadosPermanenteValidos = ['activo', 'inactivo', 'manutencao'];
-    if (!estadosPermanenteValidos.includes(estado_permanente)) {
-        return res.status(400).json({
-            sucesso: false,
-            mensagem: `Estado permanente inválido. Use: ${estadosPermanenteValidos.join(', ')}`
-        });
-    }
-
-    // Validar estado_compra
-    const estadosCompraValidos = ['livre', 'ocupado', 'reservado', 'bloqueado'];
-    if (!estadosCompraValidos.includes(estado_compra)) {
-        return res.status(400).json({
-            sucesso: false,
-            mensagem: `Estado de compra inválido. Use: ${estadosCompraValidos.join(', ')}`
-        });
-    }
-
-    // Validar preco_adicional
-    // if (preco_adicional < 0 || preco_adicional > 100000) {
-    //     return res.status(400).json({
-    //         sucesso: false,
-    //         mensagem: "Preço adicional deve ser entre 0 e 100"
-    //     });
-    // }
-
     // Calcular número de filas
     let total_filas;
     const lugares_por_fila = coluna;
@@ -414,6 +487,27 @@ router.post('/salas',verificarToken, async (req, res) => {
     const id_sala = uuidv4();
 
     try {
+        // Verificar se já existe uma sala com o mesmo nome e tipo
+        const verificarSalaQuery = `
+            SELECT id_sala, nome_sala, tipo_sala 
+            FROM salas 
+            WHERE nome_sala = $1 AND tipo_sala = $2
+        `;
+        
+        const salaExistente = await conexao.query(verificarSalaQuery, [nome_sala.trim(), tipo_sala]);
+        
+        if (salaExistente.rows.length > 0) {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: `Já existe uma sala com o nome "${nome_sala}" e tipo "${tipo_sala}"`,
+                sala_existente: {
+                    id_sala: salaExistente.rows[0].id_sala,
+                    nome_sala: salaExistente.rows[0].nome_sala,
+                    tipo_sala: salaExistente.rows[0].tipo_sala
+                }
+            });
+        }
+
         // Iniciar transação
         await conexao.query('BEGIN');
 
@@ -457,32 +551,26 @@ router.post('/salas',verificarToken, async (req, res) => {
                 const codigo_unico = gerarCodigo();
                 
                 const insertLugarQuery = `
-                    INSERT INTO lugares (id_lugar, id_sala, codigo_lugar, tipo_lugar, fileira, numero, estado_permanente, preco_adicional, estado_compra, codigo)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                    INSERT INTO lugares (id_lugar, id_sala, codigo_lugar, fileira, numero, estado_permanente, estado_compra, codigo)
+                    VALUES ($1, $2, $3, $4, $5, 'activo', 'livre', $6)
                 `;
                 
                 await conexao.query(insertLugarQuery, [
                     id_lugar,
                     id_sala,
                     codigo_lugar,
-                    tipo_lugar,
                     letraFileira,
                     numero,
-                    estado_permanente,
-                    preco_adicional,
-                    estado_compra,
                     codigo_unico
                 ]);
                 
                 lugaresGerados.push({
                     id_lugar,
                     codigo_lugar,
-                    tipo_lugar,
                     fileira: letraFileira,
                     numero,
-                    estado_permanente,
-                    estado_compra,
-                    preco_adicional,
+                    estado_permanente: 'activo',
+                    estado_compra: 'livre',
                     codigo: codigo_unico
                 });
                 
@@ -544,7 +632,7 @@ router.post('/salas',verificarToken, async (req, res) => {
  * /sessoes:
  *   post:
  *     summary: Cria uma nova sessão de cinema
- *     description: Registra uma nova sessão com filme, sala, horários e preços
+ *     description: Registra uma nova sessão com filme, sala, horários e preço. Não permite conflitos de horário na mesma sala e exige intervalo mínimo de 15 minutos entre sessões.
  *     tags: [Sessões]
  *     security:
  *       - bearerAuth: []
@@ -560,9 +648,7 @@ router.post('/salas',verificarToken, async (req, res) => {
  *               - data_hora_inicio
  *               - data_hora_fim
  *               - tipo_sessao
- *               - preco_base
- *               - preco_vip
- *               - preco_acessivel
+ *               - preco
  *               - estado_sessao
  *               - criado_por
  *             properties:
@@ -591,24 +677,12 @@ router.post('/salas',verificarToken, async (req, res) => {
  *                 enum: [2D, 3D, IMAX, 4DX, D-BOX]
  *                 description: Tipo de sessão
  *                 example: "2D"
- *               preco_base:
+ *               preco:
  *                 type: number
  *                 format: float
  *                 minimum: 0
- *                 description: Preço base do ingresso
+ *                 description: Preço do ingresso
  *                 example: 24.90
- *               preco_vip:
- *                 type: number
- *                 format: float
- *                 minimum: 0
- *                 description: Preço do ingresso VIP
- *                 example: 49.90
- *               preco_acessivel:
- *                 type: number
- *                 format: float
- *                 minimum: 0
- *                 description: Preço do ingresso acessível (meia-entrada)
- *                 example: 12.45
  *               estado_sessao:
  *                 type: string
  *                 enum: [agendada, em_andamento, concluida, cancelada]
@@ -625,143 +699,27 @@ router.post('/salas',verificarToken, async (req, res) => {
  *                 maxLength: 500
  *                 nullable: true
  *                 example: "Sessão especial de Natal"
- *           examples:
- *             Sessão 2D:
- *               summary: Sessão tradicional 2D
- *               value:
- *                 id_filme: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
- *                 id_sala: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
- *                 data_hora_inicio: "2024-12-25T14:00:00Z"
- *                 data_hora_fim: "2024-12-25T16:30:00Z"
- *                 tipo_sessao: "2D"
- *                 preco_base: 24.90
- *                 preco_vip: 49.90
- *                 preco_acessivel: 12.45
- *                 estado_sessao: "agendada"
- *                 criado_por: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
- *                 observacoes: "Sessão de estreia"
- *             Sessão IMAX:
- *               summary: Sessão IMAX
- *               value:
- *                 id_filme: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
- *                 id_sala: "b4c9d0e2-3f5a-5b6c-9d7e-8f0a2b3c4d5e"
- *                 data_hora_inicio: "2024-12-25T20:00:00Z"
- *                 data_hora_fim: "2024-12-25T23:00:00Z"
- *                 tipo_sessao: "IMAX"
- *                 preco_base: 49.90
- *                 preco_vip: 89.90
- *                 preco_acessivel: 24.95
- *                 estado_sessao: "agendada"
- *                 criado_por: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
- *                 observacoes: ""
  *     responses:
  *       201:
  *         description: Sessão criada com sucesso
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sucesso:
- *                   type: boolean
- *                   example: true
- *                 mensagem:
- *                   type: string
- *                   example: "Sessão criada com sucesso"
- *                 sessao:
- *                   type: object
- *                   properties:
- *                     id_sessao:
- *                       type: string
- *                       format: uuid
- *                       example: "123e4567-e89b-12d3-a456-426614174000"
- *                     id_filme:
- *                       type: string
- *                       format: uuid
- *                       example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
- *                     id_sala:
- *                       type: string
- *                       format: uuid
- *                       example: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
- *                     data_hora_inicio:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-12-25T14:00:00Z"
- *                     data_hora_fim:
- *                       type: string
- *                       format: date-time
- *                       example: "2024-12-25T16:30:00Z"
- *                     tipo_sessao:
- *                       type: string
- *                       example: "2D"
- *                     preco_base:
- *                       type: number
- *                       example: 24.90
- *                     preco_vip:
- *                       type: number
- *                       example: 49.90
- *                     preco_acessivel:
- *                       type: number
- *                       example: 12.45
- *                     estado_sessao:
- *                       type: string
- *                       example: "agendada"
- *                     criado_por:
- *                       type: string
- *                       format: uuid
- *                       example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
- *                     observacoes:
- *                       type: string
- *                       nullable: true
- *                       example: "Sessão especial de Natal"
  *       400:
- *         description: Requisição inválida - Campos obrigatórios faltando
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               sucesso: false
- *               mensagem: "Preencha todos os campos obrigatórios"
+ *         description: Dados inválidos
  *       401:
- *         description: Não autorizado - Token inválido ou ausente
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "Token não fornecido"
+ *         description: Não autorizado
  *       409:
- *         description: Conflito - Sala já ocupada no horário
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               sucesso: false
- *               mensagem: "Sala já possui uma sessão agendada neste horário"
+ *         description: Conflito de horário - Sala já ocupada ou intervalo insuficiente
  *       500:
- *         description: Erro interno do servidor
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               sucesso: false
- *               mensagem: "Erro ao criar sessão"
- *               erro: "Database connection error"
+ *         description: Erro interno
  */
 
-router.post('/sessoes', (req, res) => {
+router.post('/sessoes',verificarToken, async (req, res) => {
     const {
         id_filme, 
         id_sala,
         data_hora_inicio,
         data_hora_fim,
         tipo_sessao,
-        preco_base,
-        preco_vip,
-        preco_acessivel,
+        preco,
         estado_sessao,
         criado_por,
         observacoes
@@ -771,77 +729,165 @@ router.post('/sessoes', (req, res) => {
 
     // Validação de campos obrigatórios
     if (!id_filme || !id_sala || !data_hora_inicio || !data_hora_fim || 
-        !tipo_sessao || !preco_base || !preco_vip || !preco_acessivel || 
-        !estado_sessao || !criado_por) {
+        !tipo_sessao || !preco || !estado_sessao || !criado_por) {
         return res.status(400).json({
             sucesso: false,
             mensagem: "Preencha todos os campos obrigatórios"
         });
     }
 
+    const inicio = new Date(data_hora_inicio);
+    const fim = new Date(data_hora_fim);
+
     // Validação de horário
-    if (new Date(data_hora_inicio) >= new Date(data_hora_fim)) {
+    if (inicio >= fim) {
         return res.status(400).json({
             sucesso: false,
             mensagem: "Data/hora de início deve ser anterior à data/hora de fim"
         });
     }
 
-    // Validação de preços
-    if (preco_base <= 0 || preco_vip <= 0 || preco_acessivel <= 0) {
+    // Validação de preço
+    if (preco <= 0) {
         return res.status(400).json({
             sucesso: false,
-            mensagem: "Os preços devem ser maiores que zero"
+            mensagem: "O preço deve ser maior que zero"
         });
     }
 
-    const sqlInsert = `
-        INSERT INTO sessoes (
-            id_sessao, 
-            id_filme, 
-            id_sala, 
-            data_hora_inicio, 
-            data_hora_fim, 
-            tipo_sessao, 
-            preco_base, 
-            preco_vip, 
-            preco_acessivel, 
-            estado_sessao, 
-            criado_por, 
-            observacoes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-    `;
+    try {
+        // Verificar conflitos de horário na mesma sala
+        const verificarConflitoQuery = `
+            SELECT id_sessao, data_hora_inicio, data_hora_fim
+            FROM sessoes 
+            WHERE id_sala = $1 
+            AND estado_sessao NOT IN ('cancelada')
+            AND (
+                (data_hora_inicio <= $2 AND data_hora_fim >= $2) OR -- Sessão existente começa antes e termina depois do início da nova
+                (data_hora_inicio <= $3 AND data_hora_fim >= $3) OR -- Sessão existente começa antes e termina depois do fim da nova
+                (data_hora_inicio >= $2 AND data_hora_fim <= $3) OR -- Sessão existente está dentro do novo horário
+                (data_hora_inicio BETWEEN $2 AND $3) OR -- Início da sessão existente dentro do novo horário
+                (data_hora_fim BETWEEN $2 AND $3) -- Fim da sessão existente dentro do novo horário
+            )
+            ORDER BY data_hora_inicio
+        `;
 
-    conexao.query(sqlInsert, [
-        id_sessao,
-        id_filme,
-        id_sala,
-        data_hora_inicio,
-        data_hora_fim,
-        tipo_sessao,
-        preco_base,
-        preco_vip,
-        preco_acessivel,
-        estado_sessao,
-        criado_por,
-        observacoes || null
-    ], (err) => {
-        if (err) {
-            // Verificar se é erro de conflito de horário
-            if (err.code === '23505') { // Código de violação de unique constraint
+        const conflitos = await conexao.query(verificarConflitoQuery, [id_sala, inicio, fim]);
+
+        if (conflitos.rows.length > 0) {
+            // Verificar se há conflito com intervalo de 15 minutos
+            let mensagemConflito = "Conflito de horário. ";
+            
+            for (const conflito of conflitos.rows) {
+                const conflitoInicio = new Date(conflito.data_hora_inicio);
+                const conflitoFim = new Date(conflito.data_hora_fim);
+                
+                // Verificar se o conflito é sobreposição direta
+                if ((inicio < conflitoFim && fim > conflitoInicio)) {
+                    mensagemConflito = `Já existe uma sessão agendada para esta sala no período de ${conflitoInicio.toLocaleString()} até ${conflitoFim.toLocaleString()}`;
+                    return res.status(409).json({
+                        sucesso: false,
+                        mensagem: mensagemConflito,
+                        conflito: {
+                            id_sessao: conflito.id_sessao,
+                            data_hora_inicio: conflitoInicio,
+                            data_hora_fim: conflitoFim
+                        }
+                    });
+                }
+            }
+        }
+
+        // Verificar intervalo mínimo de 15 minutos após o fim da última sessão
+        const verificarIntervaloQuery = `
+            SELECT id_sessao, data_hora_inicio, data_hora_fim
+            FROM sessoes 
+            WHERE id_sala = $1 
+            AND estado_sessao NOT IN ('cancelada')
+            AND data_hora_fim <= $2
+            ORDER BY data_hora_fim DESC
+            LIMIT 1
+        `;
+
+        const ultimaSessao = await conexao.query(verificarIntervaloQuery, [id_sala, inicio]);
+
+        if (ultimaSessao.rows.length > 0) {
+            const fimUltimaSessao = new Date(ultimaSessao.rows[0].data_hora_fim);
+            const intervaloMinimo = new Date(fimUltimaSessao.getTime() + 15 * 60000); // 15 minutos
+            
+            if (inicio < intervaloMinimo) {
+                const tempoNecessario = Math.ceil((intervaloMinimo - inicio) / 60000);
                 return res.status(409).json({
                     sucesso: false,
-                    mensagem: "Já existe uma sessão agendada para esta sala neste horário",
-                    erro: err.message
+                    mensagem: `É necessário aguardar 15 minutos entre sessões. Próximo horário disponível: ${intervaloMinimo.toLocaleString()}`,
+                    ultima_sessao: {
+                        id_sessao: ultimaSessao.rows[0].id_sessao,
+                        data_hora_fim: fimUltimaSessao.toLocaleString()
+                    },
+                    proximo_horario_disponivel: intervaloMinimo.toLocaleString(),
+                    minutos_necessarios: tempoNecessario
                 });
             }
-            
-            return res.status(500).json({
-                sucesso: false,
-                mensagem: "Erro ao criar sessão",
-                erro: err.message
-            });
         }
+
+        // Verificar se há sessão programada para começar muito cedo (intervalo de 15 minutos antes)
+        const verificarProximaSessaoQuery = `
+            SELECT id_sessao, data_hora_inicio, data_hora_fim
+            FROM sessoes 
+            WHERE id_sala = $1 
+            AND estado_sessao NOT IN ('cancelada')
+            AND data_hora_inicio >= $2
+            ORDER BY data_hora_inicio ASC
+            LIMIT 1
+        `;
+
+        const proximaSessao = await conexao.query(verificarProximaSessaoQuery, [id_sala, fim]);
+
+        if (proximaSessao.rows.length > 0) {
+            const inicioProximaSessao = new Date(proximaSessao.rows[0].data_hora_inicio);
+            const fimAtualComIntervalo = new Date(fim.getTime() + 15 * 60000);
+            
+            if (inicioProximaSessao < fimAtualComIntervalo) {
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: `A próxima sessão começa muito cedo. É necessário intervalo de 15 minutos entre sessões.`,
+                    proxima_sessao: {
+                        id_sessao: proximaSessao.rows[0].id_sessao,
+                        data_hora_inicio: inicioProximaSessao.toLocaleString()
+                    },
+                    horario_minimo_proxima_sessao: fimAtualComIntervalo.toLocaleString()
+                });
+            }
+        }
+
+        // Se passou por todas as verificações, criar a sessão
+        const sqlInsert = `
+            INSERT INTO sessoes (
+                id_sessao, 
+                id_filme, 
+                id_sala, 
+                data_hora_inicio, 
+                data_hora_fim, 
+                tipo_sessao, 
+                preco, 
+                estado_sessao, 
+                criado_por, 
+                observacoes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `;
+
+        await conexao.query(sqlInsert, [
+            id_sessao,
+            id_filme,
+            id_sala,
+            inicio,
+            fim,
+            tipo_sessao,
+            preco,
+            estado_sessao,
+            criado_por,
+            observacoes || null
+        ]);
 
         res.status(201).json({
             sucesso: true,
@@ -850,18 +896,335 @@ router.post('/sessoes', (req, res) => {
                 id_sessao, 
                 id_filme, 
                 id_sala, 
-                data_hora_inicio, 
-                data_hora_fim, 
+                data_hora_inicio: inicio, 
+                data_hora_fim: fim, 
                 tipo_sessao, 
-                preco_base, 
-                preco_vip, 
-                preco_acessivel, 
+                preco, 
                 estado_sessao, 
                 criado_por, 
                 observacoes 
             }
         });
-    });
+
+    } catch (err) {
+        console.error('Erro ao criar sessão:', err);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao criar sessão",
+            erro: err.message
+        });
+    }
+});
+
+/**
+ * @swagger
+ * /compras:
+ *   post:
+ *     summary: Cria uma nova compra com bilhetes e lugares
+ *     description: Registra uma compra, os bilhetes e os lugares associados em uma única transação. Após a compra, os lugares ficam com estado_compra='ocupado'
+ *     tags: [Compras]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id_cliente
+ *               - forma_pagamento
+ *               - bilhetes
+ *             properties:
+ *               id_cliente:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID do cliente (utilizador)
+ *                 example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *               forma_pagamento:
+ *                 type: string
+ *                 enum: [multicaixa, dinheiro, cartao_credito, cartao_debito, pix_angola]
+ *                 description: Forma de pagamento
+ *                 example: "multicaixa"
+ *               bilhetes:
+ *                 type: array
+ *                 description: Lista de bilhetes a serem comprados
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id_sessao
+ *                     - tipo_bilhete
+ *                     - preco_pago
+ *                     - id_lugares
+ *                   properties:
+ *                     id_sessao:
+ *                       type: string
+ *                       format: uuid
+ *                       description: UUID da sessão
+ *                       example: "123e4567-e89b-12d3-a456-426614174000"
+ *                     tipo_bilhete:
+ *                       type: string
+ *                       enum: [inteiro, meio, vip, acessivel]
+ *                       description: Tipo do bilhete
+ *                       example: "vip"
+ *                     preco_pago:
+ *                       type: number
+ *                       format: float
+ *                       minimum: 0
+ *                       description: Preço pago pelo bilhete
+ *                       example: 49.90
+ *                     id_lugares:
+ *                       type: array
+ *                       description: IDs dos lugares ocupados por este bilhete
+ *                       minItems: 1
+ *                       items:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "lugar-uuid-123"
+ *     responses:
+ *       201:
+ *         description: Compra criada com sucesso
+ *       400:
+ *         description: Requisição inválida
+ *       401:
+ *         description: Não autorizado
+ *       409:
+ *         description: Conflito - Lugares ocupados
+ *       500:
+ *         description: Erro interno do servidor
+ */
+
+router.post('/compras',verificarToken, async (req, res) => {
+    const { id_cliente, forma_pagamento, bilhetes } = req.body;
+    
+    // Validações básicas
+    if (!id_cliente || !forma_pagamento || !bilhetes || bilhetes.length === 0) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Preencha todos os campos obrigatórios: id_cliente, forma_pagamento, bilhetes"
+        });
+    }
+
+    // Validar forma de pagamento
+    const formasValidas = ['multicaixa', 'dinheiro', 'cartao_credito', 'cartao_debito', 'pix_angola'];
+    if (!formasValidas.includes(forma_pagamento)) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Forma de pagamento inválida. Opções: multicaixa, dinheiro, cartao_credito, cartao_debito, pix_angola"
+        });
+    }
+
+    // Calcular valor total
+    let valorTotal = 0;
+    for (const bilhete of bilhetes) {
+        if (!bilhete.preco_pago || bilhete.preco_pago <= 0) {
+            return res.status(400).json({
+                sucesso: false,
+                mensagem: "Preço do bilhete inválido"
+            });
+        }
+        valorTotal += bilhete.preco_pago;
+    }
+
+    try {
+        // Verificar se os lugares estão disponíveis
+        for (const bilhete of bilhetes) {
+            const { id_sessao, id_lugares } = bilhete;
+            
+            if (!id_sessao || !id_lugares || id_lugares.length === 0) {
+                return res.status(400).json({
+                    sucesso: false,
+                    mensagem: "Cada bilhete deve ter id_sessao e pelo menos um id_lugar"
+                });
+            }
+
+            // Verificar lugares duplicados na mesma compra
+            const todosLugares = bilhetes.flatMap(b => b.id_lugares);
+            const lugaresUnicos = new Set(todosLugares);
+            if (todosLugares.length !== lugaresUnicos.size) {
+                return res.status(400).json({
+                    sucesso: false,
+                    mensagem: "Existem lugares duplicados na compra"
+                });
+            }
+
+            // Verificar se lugares já estão ocupados (estado_compra = 'ocupado')
+            const lugaresOcupadosQuery = `
+                SELECT id_lugar, estado_compra
+                FROM lugares 
+                WHERE id_lugar = ANY($1) AND estado_compra = 'ocupado'
+            `;
+            
+            const lugaresOcupados = await conexao.query(lugaresOcupadosQuery, [id_lugares]);
+            
+            if (lugaresOcupados.rows.length > 0) {
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: `Os seguintes lugares já estão ocupados: ${lugaresOcupados.rows.map(l => l.id_lugar).join(', ')}`
+                });
+            }
+
+            // Verificar se lugares estão permanentemente inativos ou em manutenção
+            const lugaresIndisponiveisQuery = `
+                SELECT id_lugar, estado_permanente
+                FROM lugares 
+                WHERE id_lugar = ANY($1) AND estado_permanente IN ('inactivo', 'manutencao')
+            `;
+            
+            const lugaresIndisponiveis = await conexao.query(lugaresIndisponiveisQuery, [id_lugares]);
+            
+            if (lugaresIndisponiveis.rows.length > 0) {
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: `Os seguintes lugares estão permanentemente indisponíveis: ${lugaresIndisponiveis.rows.map(l => l.id_lugar).join(', ')}`
+                });
+            }
+        }
+
+        // Gerar número da fatura
+        const numeroFactura = gerarCodigo();
+        const id_compra = gerarId();
+        const dataAtual = new Date();
+
+        // Iniciar transação
+        await conexao.query('BEGIN');
+
+        try {
+            // 1. Inserir na tabela compras
+            const insertCompraQuery = `
+                INSERT INTO compras (
+                    id_compra, 
+                    id_cliente, 
+                    valor_total, 
+                    forma_pagamento, 
+                    estado_pagamento, 
+                    numero_factura,
+                    data_compra
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `;
+
+            await conexao.query(insertCompraQuery, [
+                id_compra,
+                id_cliente,
+                valorTotal,
+                forma_pagamento,
+                'aprovado',
+                numeroFactura,
+                dataAtual
+            ]);
+
+            // 2. Inserir bilhetes e associar lugares
+            const bilhetesCriados = [];
+            const todosLugaresParaAtualizar = [];
+            
+            for (const bilhete of bilhetes) {
+                const id_bilhete = gerarId();
+                
+                const insertBilheteQuery = `
+                    INSERT INTO bilhetes (
+                        id_bilhete,
+                        id_compra,
+                        id_sessao,
+                        preco_pago,
+                        tipo_bilhete,
+                        estado_uso
+                    ) VALUES ($1, $2, $3, $4, $5, $6)
+                `;
+
+                await conexao.query(insertBilheteQuery, [
+                    id_bilhete,
+                    id_compra,
+                    bilhete.id_sessao,
+                    bilhete.preco_pago,
+                    bilhete.tipo_bilhete,
+                    'activo'
+                ]);
+
+                // 3. Associar lugares ao bilhete
+                for (const id_lugar of bilhete.id_lugares) {
+                    const insertBilheteLugarQuery = `
+                        INSERT INTO bilhetes_lugares (
+                            id_bilhete,
+                            id_lugar
+                        ) VALUES ($1, $2)
+                    `;
+
+                    await conexao.query(insertBilheteLugarQuery, [id_bilhete, id_lugar]);
+                    
+                    // Guardar lugares para atualizar estado_compra
+                    todosLugaresParaAtualizar.push(id_lugar);
+                }
+
+                bilhetesCriados.push({
+                    id_bilhete,
+                    tipo_bilhete: bilhete.tipo_bilhete,
+                    preco_pago: bilhete.preco_pago,
+                    lugares: bilhete.id_lugares
+                });
+            }
+
+            // 4. Atualizar o estado_compra dos lugares para 'ocupado'
+            if (todosLugaresParaAtualizar.length > 0) {
+                const updateLugaresQuery = `
+                    UPDATE lugares 
+                    SET estado_compra = 'ocupado'
+                    WHERE id_lugar = ANY($1)
+                    RETURNING id_lugar, codigo_lugar, estado_compra
+                `;
+                
+                const lugaresAtualizados = await conexao.query(updateLugaresQuery, [todosLugaresParaAtualizar]);
+                
+                console.log(`Lugares atualizados para ocupado: ${lugaresAtualizados.rows.length}`);
+            }
+
+            // Commit da transação
+            await conexao.query('COMMIT');
+
+            // Retornar sucesso
+            res.status(201).json({
+                sucesso: true,
+                mensagem: "Compra realizada com sucesso",
+                dados: {
+                    id_compra,
+                    numero_factura,
+                    valor_total: valorTotal,
+                    data_compra: dataAtual,
+                    forma_pagamento,
+                    bilhetes: bilhetesCriados,
+                    lugares_atualizados: todosLugaresParaAtualizar.length
+                }
+            });
+
+        } catch (error) {
+            // Rollback em caso de erro
+            await conexao.query('ROLLBACK');
+            
+            console.error('Erro ao criar compra:', error);
+            
+            // Verificar se é erro de chave duplicada (numero_factura)
+            if (error.code === '23505' || error.constraint === 'compras_numero_factura_key') {
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: "Erro ao gerar número da fatura. Tente novamente."
+                });
+            }
+            
+            res.status(500).json({
+                sucesso: false,
+                mensagem: "Erro ao processar compra",
+                erro: error.message
+            });
+        }
+        
+    } catch (err) {
+        console.error('Erro na validação:', err);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao validar compra",
+            erro: err.message
+        });
+    }
 });
 
 module.exports = router;

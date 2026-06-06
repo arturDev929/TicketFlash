@@ -79,38 +79,7 @@ const {verificarToken} = require('../middleware/authMiddleware');
  */
 
 router.get('/movies',verificarToken, (req, res) => {    
-    const query = `SELECT 
-    f.id_filme,
-    f.titulo,
-    f.sinopse,
-    f.duracao_minutos,
-    f.ano_lancamento,
-    f.classificacao_etaria,
-    f.nota_media,
-    f.cartaz_url,
-    f.trailer_url,
-    f.estado_exibicao,
-    f.pais_origem,
-    f.idioma_original,
-    STRING_AGG(g.nome_genero, ', ' ORDER BY g.nome_genero) as generos,
-    COUNT(DISTINCT g.id_genero) as total_generos
-FROM filmes f
-LEFT JOIN filmes_generos fg ON f.id_filme = fg.id_filme
-LEFT JOIN generos g ON g.id_genero = fg.id_genero
-GROUP BY 
-    f.id_filme,
-    f.titulo,
-    f.sinopse,
-    f.duracao_minutos,
-    f.ano_lancamento,
-    f.classificacao_etaria,
-    f.nota_media,
-    f.cartaz_url,
-    f.trailer_url,
-    f.estado_exibicao,
-    f.pais_origem,
-    f.idioma_original
-ORDER BY f.nota_media DESC`;
+    const query = `SELECT f.id_filme, f.titulo, f.sinopse, f.duracao_minutos, f.ano_lancamento, f.classificacao_etaria, f.nota_media, f.cartaz_url,f.trailer_url, f.estado_exibicao, f.pais_origem, f.idioma_original, STRING_AGG(g.nome_genero, ', ' ORDER BY g.nome_genero) as generos, COUNT(DISTINCT g.id_genero) as total_generos FROM filmes f LEFT JOIN filmes_generos fg ON f.id_filme = fg.id_filme LEFT JOIN generos g ON g.id_genero = fg.id_genero GROUP BY f.id_filme, f.titulo, f.sinopse, f.duracao_minutos, f.ano_lancamento, f.classificacao_etaria, f.nota_media, f.cartaz_url, f.trailer_url, f.estado_exibicao, f.pais_origem, f.idioma_original ORDER BY f.nota_media DESC`;
 
     conexao.query(query, (err, results) => {
         if (err) {
@@ -602,7 +571,7 @@ router.get('/sessoes', verificarToken, (req, res) => {
  *               erro: "Erro na consulta ao banco de dados: connection timeout"
  */
 
-router.get('/sessoes/:id_filme', (req, res) => {
+router.get('/sessoes/:id_filme',verificarToken, (req, res) => {
     const { id_filme } = req.params;
 
     const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco_vip,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador WHERE f.id_filme = $1`;

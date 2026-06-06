@@ -9,6 +9,7 @@ const swaggerSpecs = require('./config/swagger');
 const loginRouter = require('./routes/login');
 const postsRouter = require('./routes/post');
 const getRouter = require('./routes/get');
+const putRouter = require('./routes/put');
 
 dotenv.config();
 const app = express();
@@ -69,6 +70,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 app.use('/login', loginRouter);
 app.use('/', postsRouter);
 app.use('/', getRouter);
+app.use('/', putRouter);
 
 app.get('/', (req, res) => {
     res.json({
