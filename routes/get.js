@@ -78,8 +78,8 @@ const {verificarToken} = require('../middleware/authMiddleware');
  *                   example: Erro na consulta SQL
  */
 
-router.get('/movies',verificarToken, (req, res) => {    
-    const query = `SELECT f.id_filme, f.titulo, f.sinopse, f.duracao_minutos, f.ano_lancamento, f.classificacao_etaria, f.nota_media, f.cartaz_url,f.trailer_url, f.estado_exibicao, f.pais_origem, f.idioma_original, STRING_AGG(g.nome_genero, ', ' ORDER BY g.nome_genero) as generos, COUNT(DISTINCT g.id_genero) as total_generos FROM filmes f LEFT JOIN filmes_generos fg ON f.id_filme = fg.id_filme LEFT JOIN generos g ON g.id_genero = fg.id_genero GROUP BY f.id_filme, f.titulo, f.sinopse, f.duracao_minutos, f.ano_lancamento, f.classificacao_etaria, f.nota_media, f.cartaz_url, f.trailer_url, f.estado_exibicao, f.pais_origem, f.idioma_original ORDER BY f.nota_media DESC`;
+router.get('/movies', (req, res) => {    
+    const query = `SELECT f.id_filme, f.titulo, f.sinopse as descricao, f.duracao_minutos, f.ano_lancamento, f.classificacao_etaria, f.nota_media as nota, f.cartaz_url as img,f.trailer_url, f.estado_exibicao, f.pais_origem, f.idioma_original, STRING_AGG(g.nome_genero, ', ' ORDER BY g.nome_genero) as generos, COUNT(DISTINCT g.id_genero) as total_generos FROM filmes f LEFT JOIN filmes_generos fg ON f.id_filme = fg.id_filme LEFT JOIN generos g ON g.id_genero = fg.id_genero GROUP BY f.id_filme, f.titulo, f.sinopse, f.duracao_minutos, f.ano_lancamento, f.classificacao_etaria, f.nota_media, f.cartaz_url, f.trailer_url, f.estado_exibicao, f.pais_origem, f.idioma_original ORDER BY f.nota_media DESC`;
 
     conexao.query(query, (err, results) => {
         if (err) {
@@ -164,7 +164,7 @@ router.get('/movies',verificarToken, (req, res) => {
  *               erro: "Erro na consulta ao banco de dados: connection timeout"
  */
 
-router.get('/movies/:id_filme',verificarToken, (req, res) => { 
+router.get('/movies/:id_filme', (req, res) => { 
     const { id_filme } = req.params;
     
     const query = `SELECT 
@@ -349,8 +349,8 @@ router.get('/movies/:id_filme',verificarToken, (req, res) => {
  *               erro: "Erro na consulta ao banco de dados: connection timeout"
  */
 
-router.get('/sessoes', verificarToken, (req, res) => {    
-    const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco_vip,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador  limit 1000 
+router.get('/sessoes', (req, res) => {    
+    const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador  limit 1000 
 `;
 
     conexao.query(query, (err, results) => {
@@ -380,9 +380,8 @@ router.get('/sessoes', verificarToken, (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
- *           pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
  *         description: UUID do filme
- *         example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *         example: "2c1c349c-b282-45fa-a6da-a83a8e5bad3c"
  *     responses:
  *       200:
  *         description: Sucesso - Sessões do filme encontradas
@@ -398,183 +397,99 @@ router.get('/sessoes', verificarToken, (req, res) => {
  *                     properties:
  *                       titulo:
  *                         type: string
- *                         description: Título do filme
- *                         example: "O Poderoso Chefão"
  *                       duracao_minutos:
  *                         type: integer
- *                         description: Duração do filme em minutos
- *                         example: 175
  *                       ano_lancamento:
  *                         type: integer
- *                         description: Ano de lançamento do filme
- *                         example: 1972
  *                       data_hora_inicio:
  *                         type: string
  *                         format: date-time
- *                         description: Data e hora de início da sessão
- *                         example: "2024-12-25T14:00:00.000Z"
  *                       data_hora_fim:
  *                         type: string
  *                         format: date-time
- *                         description: Data e hora de fim da sessão
- *                         example: "2024-12-25T16:30:00.000Z"
- *                       preco_vip:
+ *                       preco:
  *                         type: number
- *                         format: float
- *                         description: Preço do ingresso VIP
- *                         example: 49.90
  *                       nome_sala:
  *                         type: string
- *                         description: Nome da sala
- *                         example: "Sala 1 - IMAX"
  *                       capacidade_total:
  *                         type: integer
- *                         description: Capacidade total da sala
- *                         example: 150
  *                       tipo_sala:
  *                         type: string
- *                         description: Tipo da sala
- *                         example: "IMAX"
  *                       estado_sessao:
  *                         type: string
- *                         enum: [agendada, em_andamento, concluida, cancelada]
- *                         description: Estado atual da sessão
- *                         example: "agendada"
  *                       nome_completo:
  *                         type: string
- *                         description: Nome completo do funcionário responsável
- *                         example: "João Silva Santos"
  *                       numero_funcionario:
  *                         type: string
- *                         description: Número de identificação do funcionário
- *                         example: "FUNC00123"
  *                       estado_sala:
  *                         type: string
- *                         enum: [disponivel, ocupada, manutencao]
- *                         description: Estado da sala
- *                         example: "disponivel"
  *                       sinopse:
  *                         type: string
- *                         description: Sinopse do filme
- *                         example: "A história da família Corleone..."
  *                       classificacao_etaria:
  *                         type: string
- *                         description: Classificação indicativa do filme
- *                         example: "16"
  *                       nota_media:
  *                         type: number
- *                         format: float
- *                         description: Média das avaliações do filme
- *                         example: 9.2
  *                       cartaz_url:
  *                         type: string
- *                         format: uri
- *                         description: URL do cartaz/poster do filme
- *                         example: "https://exemplo.com/posters/godfather.jpg"
  *                       trailer_url:
  *                         type: string
- *                         format: uri
- *                         description: URL do trailer do filme
- *                         example: "https://youtube.com/watch?v=godfather"
  *                       estado_exibicao:
  *                         type: string
- *                         description: Estado de exibição do filme
- *                         example: "em_cartaz"
  *                       pais_origem:
  *                         type: string
- *                         description: País de origem do filme
- *                         example: "EUA"
  *                       idioma_original:
  *                         type: string
- *                         description: Idioma original do filme
- *                         example: "Inglês"
+ *                       codigos_lugar:
+ *                         type: string
+ *                         description: Códigos dos lugares concatenados
+ *                       codigos:
+ *                         type: string
+ *                         description: Códigos concatenados
  *                 rowCount:
  *                   type: integer
- *                   description: Número de sessões encontradas
- *                   example: 3
  *             example:
- *               rows:
- *                 - titulo: "O Poderoso Chefão"
- *                   duracao_minutos: 175
- *                   ano_lancamento: 1972
- *                   data_hora_inicio: "2024-12-25T14:00:00.000Z"
- *                   data_hora_fim: "2024-12-25T16:30:00.000Z"
- *                   preco_vip: 49.90
- *                   nome_sala: "Sala 1 - IMAX"
- *                   capacidade_total: 150
- *                   tipo_sala: "IMAX"
- *                   estado_sessao: "agendada"
- *                   nome_completo: "João Silva Santos"
- *                   numero_funcionario: "FUNC00123"
- *                   estado_sala: "disponivel"
- *                   sinopse: "A história da família Corleone..."
- *                   classificacao_etaria: "16"
- *                   nota_media: 9.2
- *                   cartaz_url: "https://exemplo.com/posters/godfather.jpg"
- *                   trailer_url: "https://youtube.com/watch?v=godfather"
- *                   estado_exibicao: "em_cartaz"
- *                   pais_origem: "EUA"
- *                   idioma_original: "Inglês"
- *                 - titulo: "O Poderoso Chefão"
- *                   duracao_minutos: 175
- *                   ano_lancamento: 1972
- *                   data_hora_inicio: "2024-12-25T20:00:00.000Z"
- *                   data_hora_fim: "2024-12-25T22:30:00.000Z"
- *                   preco_vip: 49.90
- *                   nome_sala: "Sala 2 - 4DX"
- *                   capacidade_total: 120
- *                   tipo_sala: "4DX"
- *                   estado_sessao: "agendada"
- *                   nome_completo: "Maria Oliveira Santos"
- *                   numero_funcionario: "FUNC00456"
- *                   estado_sala: "disponivel"
- *                   sinopse: "A história da família Corleone..."
- *                   classificacao_etaria: "16"
- *                   nota_media: 9.2
- *                   cartaz_url: "https://exemplo.com/posters/godfather.jpg"
- *                   trailer_url: "https://youtube.com/watch?v=godfather"
- *                   estado_exibicao: "em_cartaz"
- *                   pais_origem: "EUA"
- *                   idioma_original: "Inglês"
- *               rowCount: 2
+ *               rows: [
+ *                 {
+ *                   titulo: "A Origem",
+ *                   duracao_minutos: 148,
+ *                   ano_lancamento: 2010,
+ *                   data_hora_inicio: "2024-12-25T14:00:00.000Z",
+ *                   data_hora_fim: "2024-12-25T16:28:00.000Z",
+ *                   preco: 25.00,
+ *                   nome_sala: "Sala 1 - IMAX",
+ *                   capacidade_total: 120,
+ *                   tipo_sala: "normal",
+ *                   estado_sessao: "agendada",
+ *                   nome_completo: "João Silva",
+ *                   numero_funcionario: "FUNC001",
+ *                   estado_sala: "disponivel",
+ *                   sinopse: "Um ladrão que invade os sonhos...",
+ *                   classificacao_etaria: "14",
+ *                   nota_media: 8.8,
+ *                   cartaz_url: "https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg",
+ *                   trailer_url: "https://youtube.com/...",
+ *                   estado_exibicao: "em_cartaz",
+ *                   pais_origem: "EUA",
+ *                   idioma_original: "Inglês",
+ *                   codigos_lugar: "A1, A2, A3, B1, B2",
+ *                   codigos: "1, 2, 3, 4, 5"
+ *                 }
+ *               ]
+ *               rowCount: 1
  *       400:
- *         description: Requisição inválida - ID do filme inválido
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "ID do filme deve ser um UUID válido"
+ *         description: Requisição inválida
  *       401:
- *         description: Não autorizado - Token inválido ou ausente
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "Token não fornecido"
+ *         description: Não autorizado
  *       404:
- *         description: Filme não encontrado ou não possui sessões
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "Nenhuma sessão encontrada para o filme com ID 0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *         description: Filme não encontrado
  *       500:
- *         description: Erro interno do servidor
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "Erro na consulta ao banco de dados: connection timeout"
+ *         description: Erro interno
  */
 
-router.get('/sessoes/:id_filme',verificarToken, (req, res) => {
+router.get('/sessoes/:id_filme', (req, res) => {
     const { id_filme } = req.params;
 
-    const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco_vip,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador WHERE f.id_filme = $1`;
+    const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original, STRING_AGG(lr.codigo_lugar, ', ' ORDER BY lr.codigo_lugar) as codigos_lugar, STRING_AGG(lr.codigo::text, ', ' ORDER BY lr.codigo_lugar) as codigos FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador inner join lugares lr on sl.id_sala = lr.id_sala WHERE f.id_filme = $1 GROUP BY f.titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco, nome_sala, capacidade_total, tipo_sala, estado_sessao, nome_completo, numero_funcionario, estado_sala, sinopse, classificacao_etaria, nota_media, cartaz_url, trailer_url, estado_exibicao, pais_origem, idioma_original`;
 
     conexao.query(query, [id_filme], (err, results) => {
         if (err) {
@@ -583,6 +498,245 @@ router.get('/sessoes/:id_filme',verificarToken, (req, res) => {
             });
         }
 
+        res.json(results);
+    });
+});
+
+/**
+ * @swagger
+ * /destaque:
+ *   get:
+ *     summary: Lista filmes em destaque
+ *     description: Retorna uma lista de filmes marcados como destaque, limitada a 50 resultados
+ *     tags: [Filmes]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Número máximo de filmes a retornar
+ *     responses:
+ *       200:
+ *         description: Lista de filmes em destaque retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Filme'
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   example: "Database connection error"
+ */
+
+router.get('/destaque',async (req, res) => {
+    const query = `Select * from filmes Where destaque=true limit 50`;
+
+    conexao.query(query, (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                erro: err.message
+            });
+        }
+        res.json(results);
+    });
+});
+
+/**
+ * @swagger
+ * /disponivel:
+ *   get:
+ *     summary: Lista filmes disponíveis
+ *     description: Retorna uma lista de até 50 filmes que estão com estado de exibição igual a 'disponivel'
+ *     tags: [Filmes]
+ *     responses:
+ *       200:
+ *         description: Lista de filmes disponíveis retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: ID do filme
+ *                     example: 1
+ *                   titulo:
+ *                     type: string
+ *                     description: Título do filme
+ *                     example: "O Poderoso Chefão"
+ *                   estado_exibicao:
+ *                     type: string
+ *                     enum: [disponivel, indisponivel, brevemente]
+ *                     description: Estado de exibição do filme
+ *                     example: "disponivel"
+ *                   destaque:
+ *                     type: boolean
+ *                     description: Indica se está em destaque
+ *                     example: false
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem do erro
+ *                   example: "Database connection error"
+ */
+router.get('/disponivel', async (req, res) => {
+    const query = `Select * from filmes Where estado_exibicao='disponivel' limit 50`;
+
+    conexao.query(query, (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                erro: err.message
+            });
+        }
+        res.json(results);
+    });
+});
+
+/**
+ * @swagger
+ * /indisponivel:
+ *   get:
+ *     summary: Lista filmes indisponíveis
+ *     description: Retorna uma lista de até 50 filmes que estão com estado de exibição igual a 'indisponivel'
+ *     tags: [Filmes]
+ *     responses:
+ *       200:
+ *         description: Lista de filmes indisponíveis retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: ID do filme
+ *                     example: 1
+ *                   titulo:
+ *                     type: string
+ *                     description: Título do filme
+ *                     example: "O Poderoso Chefão"
+ *                   estado_exibicao:
+ *                     type: string
+ *                     enum: [disponivel, indisponivel, brevemente]
+ *                     description: Estado de exibição do filme
+ *                     example: "indisponivel"
+ *                   destaque:
+ *                     type: boolean
+ *                     description: Indica se está em destaque
+ *                     example: false
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem do erro
+ *                   example: "Database connection error"
+ */
+router.get('/indisponivel', async (req, res) => {
+    const query = `Select * from filmes Where estado_exibicao='indisponivel' limit 50`;
+
+    conexao.query(query, (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                erro: err.message
+            });
+        }
+        res.json(results);
+    });
+});
+
+/**
+ * @swagger
+ * /brevemente:
+ *   get:
+ *     summary: Lista filmes que serão lançados em breve
+ *     description: Retorna uma lista de até 50 filmes que estão com estado de exibição igual a 'brevemente'
+ *     tags: [Filmes]
+ *     responses:
+ *       200:
+ *         description: Lista de filmes em breve retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     description: ID do filme
+ *                     example: 1
+ *                   titulo:
+ *                     type: string
+ *                     description: Título do filme
+ *                     example: "Avatar 3"
+ *                   estado_exibicao:
+ *                     type: string
+ *                     enum: [disponivel, indisponivel, brevemente]
+ *                     description: Estado de exibição do filme
+ *                     example: "brevemente"
+ *                   destaque:
+ *                     type: boolean
+ *                     description: Indica se está em destaque
+ *                     example: true
+ *                   data_lancamento:
+ *                     type: string
+ *                     format: date
+ *                     description: Data de lançamento prevista
+ *                     example: "2025-12-20"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem do erro
+ *                   example: "Database query error"
+ */
+router.get('/brevemente', async (req, res) => {
+    const query = `Select * from filmes Where estado_exibicao='brevemente' limit 50`;
+
+    conexao.query(query, (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                erro: err.message
+            });
+        }
         res.json(results);
     });
 });

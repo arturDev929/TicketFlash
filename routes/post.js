@@ -426,7 +426,7 @@ router.post("/register",verificarToken, async (req, res) => {
  *                   type: string
  */
 
-router.post('/salas',verificarToken, async (req, res) => {
+router.post('/salas', async (req, res) => {
     const {
         nome_sala,
         capacidade_total,
@@ -712,7 +712,7 @@ router.post('/salas',verificarToken, async (req, res) => {
  *         description: Erro interno
  */
 
-router.post('/sessoes',verificarToken, async (req, res) => {
+router.post('/sessoes', async (req, res) => {
     const {
         id_filme, 
         id_sala,
@@ -730,6 +730,10 @@ router.post('/sessoes',verificarToken, async (req, res) => {
     // Validação de campos obrigatórios
     if (!id_filme || !id_sala || !data_hora_inicio || !data_hora_fim || 
         !tipo_sessao || !preco || !estado_sessao || !criado_por) {
+        console.log('Erro de validação: Campos obrigatórios faltando', {
+            id_filme, id_sala, data_hora_inicio, data_hora_fim, 
+            tipo_sessao, preco, estado_sessao, criado_por
+        });
         return res.status(400).json({
             sucesso: false,
             mensagem: "Preencha todos os campos obrigatórios"
@@ -741,6 +745,7 @@ router.post('/sessoes',verificarToken, async (req, res) => {
 
     // Validação de horário
     if (inicio >= fim) {
+        console.log('Erro de validação: Data/hora inválida', { inicio, fim });
         return res.status(400).json({
             sucesso: false,
             mensagem: "Data/hora de início deve ser anterior à data/hora de fim"
@@ -749,6 +754,7 @@ router.post('/sessoes',verificarToken, async (req, res) => {
 
     // Validação de preço
     if (preco <= 0) {
+        console.log('Erro de validação: Preço inválido', { preco });
         return res.status(400).json({
             sucesso: false,
             mensagem: "O preço deve ser maior que zero"
@@ -763,11 +769,11 @@ router.post('/sessoes',verificarToken, async (req, res) => {
             WHERE id_sala = $1 
             AND estado_sessao NOT IN ('cancelada')
             AND (
-                (data_hora_inicio <= $2 AND data_hora_fim >= $2) OR -- Sessão existente começa antes e termina depois do início da nova
-                (data_hora_inicio <= $3 AND data_hora_fim >= $3) OR -- Sessão existente começa antes e termina depois do fim da nova
-                (data_hora_inicio >= $2 AND data_hora_fim <= $3) OR -- Sessão existente está dentro do novo horário
-                (data_hora_inicio BETWEEN $2 AND $3) OR -- Início da sessão existente dentro do novo horário
-                (data_hora_fim BETWEEN $2 AND $3) -- Fim da sessão existente dentro do novo horário
+                (data_hora_inicio <= $2 AND data_hora_fim >= $2) OR
+                (data_hora_inicio <= $3 AND data_hora_fim >= $3) OR
+                (data_hora_inicio >= $2 AND data_hora_fim <= $3) OR
+                (data_hora_inicio BETWEEN $2 AND $3) OR
+                (data_hora_fim BETWEEN $2 AND $3)
             )
             ORDER BY data_hora_inicio
         `;
@@ -775,16 +781,21 @@ router.post('/sessoes',verificarToken, async (req, res) => {
         const conflitos = await conexao.query(verificarConflitoQuery, [id_sala, inicio, fim]);
 
         if (conflitos.rows.length > 0) {
-            // Verificar se há conflito com intervalo de 15 minutos
             let mensagemConflito = "Conflito de horário. ";
             
             for (const conflito of conflitos.rows) {
                 const conflitoInicio = new Date(conflito.data_hora_inicio);
                 const conflitoFim = new Date(conflito.data_hora_fim);
                 
-                // Verificar se o conflito é sobreposição direta
                 if ((inicio < conflitoFim && fim > conflitoInicio)) {
                     mensagemConflito = `Já existe uma sessão agendada para esta sala no período de ${conflitoInicio.toLocaleString()} até ${conflitoFim.toLocaleString()}`;
+                    console.log('Erro de conflito: Sessão existente', {
+                        id_sessao: conflito.id_sessao,
+                        conflitoInicio,
+                        conflitoFim,
+                        novaSessaoInicio: inicio,
+                        novaSessaoFim: fim
+                    });
                     return res.status(409).json({
                         sucesso: false,
                         mensagem: mensagemConflito,
@@ -813,10 +824,17 @@ router.post('/sessoes',verificarToken, async (req, res) => {
 
         if (ultimaSessao.rows.length > 0) {
             const fimUltimaSessao = new Date(ultimaSessao.rows[0].data_hora_fim);
-            const intervaloMinimo = new Date(fimUltimaSessao.getTime() + 15 * 60000); // 15 minutos
+            const intervaloMinimo = new Date(fimUltimaSessao.getTime() + 15 * 60000);
             
             if (inicio < intervaloMinimo) {
                 const tempoNecessario = Math.ceil((intervaloMinimo - inicio) / 60000);
+                console.log('Erro de intervalo: Tempo insuficiente entre sessões', {
+                    ultimaSessaoId: ultimaSessao.rows[0].id_sessao,
+                    fimUltimaSessao,
+                    inicioNovaSessao: inicio,
+                    intervaloMinimo,
+                    tempoNecessario
+                });
                 return res.status(409).json({
                     sucesso: false,
                     mensagem: `É necessário aguardar 15 minutos entre sessões. Próximo horário disponível: ${intervaloMinimo.toLocaleString()}`,
@@ -830,7 +848,7 @@ router.post('/sessoes',verificarToken, async (req, res) => {
             }
         }
 
-        // Verificar se há sessão programada para começar muito cedo (intervalo de 15 minutos antes)
+        // Verificar se há sessão programada para começar muito cedo
         const verificarProximaSessaoQuery = `
             SELECT id_sessao, data_hora_inicio, data_hora_fim
             FROM sessoes 
@@ -848,6 +866,12 @@ router.post('/sessoes',verificarToken, async (req, res) => {
             const fimAtualComIntervalo = new Date(fim.getTime() + 15 * 60000);
             
             if (inicioProximaSessao < fimAtualComIntervalo) {
+                console.log('Erro de intervalo: Próxima sessão muito cedo', {
+                    proximaSessaoId: proximaSessao.rows[0].id_sessao,
+                    inicioProximaSessao,
+                    fimAtualComIntervalo,
+                    fimSessaoAtual: fim
+                });
                 return res.status(409).json({
                     sucesso: false,
                     mensagem: `A próxima sessão começa muito cedo. É necessário intervalo de 15 minutos entre sessões.`,
@@ -860,7 +884,7 @@ router.post('/sessoes',verificarToken, async (req, res) => {
             }
         }
 
-        // Se passou por todas as verificações, criar a sessão
+        // Criar a sessão
         const sqlInsert = `
             INSERT INTO sessoes (
                 id_sessao, 
@@ -907,7 +931,16 @@ router.post('/sessoes',verificarToken, async (req, res) => {
         });
 
     } catch (err) {
-        console.error('Erro ao criar sessão:', err);
+        console.error('Erro detalhado ao criar sessão:', {
+            message: err.message,
+            code: err.code,
+            constraint: err.constraint,
+            detail: err.detail,
+            where: err.where,
+            table: err.table,
+            routine: err.routine,
+            stack: err.stack
+        });
         res.status(500).json({
             sucesso: false,
             mensagem: "Erro ao criar sessão",

@@ -45,7 +45,7 @@ const { verificarToken } = require("../middleware/authMiddleware");
  *         description: Erro no servidor
  */
 
-router.put('/lugares/:id_lugar',verificarToken, async (req, res) => {
+router.put('/lugares/:id_lugar', async (req, res) => {
     const { id_lugar } = req.params;
     const { estado_permanente } = req.body;
 

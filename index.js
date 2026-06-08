@@ -72,14 +72,6 @@ app.use('/', postsRouter);
 app.use('/', getRouter);
 app.use('/', putRouter);
 
-app.get('/', (req, res) => {
-    res.json({
-        mensagem: 'TicketFlash API',
-        status: 'online',
-        docs: '/api-docs'
-    });
-});
-
 app.listen(PORT, () => {
     console.log(`Servidor: http://localhost:${PORT}`);
     console.log(`Docs: http://localhost:${PORT}/api-docs`);
