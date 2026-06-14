@@ -547,7 +547,15 @@ router.get('/sessoes/:id_filme', (req, res) => {
  */
 
 router.get('/destaque',async (req, res) => {
-    const query = `SELECT * FROM filmes f INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme INNER JOIN generos g ON g.id_genero = fg.id_genero WHERE f.destaque = true limit 50`;
+    const query = `SELECT 
+            f.*,
+            ARRAY_AGG(g.nome_genero) as generos
+        FROM filmes f 
+        INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme 
+        INNER JOIN generos g ON g.id_genero = fg.id_genero 
+        WHERE f.destaque = true 
+        GROUP BY f.id_filme
+        LIMIT 50`;
 
     conexao.query(query, (err, results) => {
         if (err) {
@@ -606,7 +614,15 @@ router.get('/destaque',async (req, res) => {
  *                   example: "Database connection error"
  */
 router.get('/disponivel', async (req, res) => {
-    const query = `SELECT * FROM filmes f INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme INNER JOIN generos g ON g.id_genero = fg.id_genero WHERE estado_exibicao = 'disponivel' limit 50`;
+    const query = `SELECT 
+            f.*,
+            ARRAY_AGG(g.nome_genero) as generos
+        FROM filmes f 
+        INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme 
+        INNER JOIN generos g ON g.id_genero = fg.id_genero 
+        WHERE estado_exibicao = 'disponivel' 
+        GROUP BY f.id_filme
+        LIMIT 50`;
 
     conexao.query(query, (err, results) => {
         if (err) {
@@ -665,7 +681,15 @@ router.get('/disponivel', async (req, res) => {
  *                   example: "Database connection error"
  */
 router.get('/indisponivel', async (req, res) => {
-    const query = `SELECT * FROM filmes f INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme INNER JOIN generos g ON g.id_genero = fg.id_genero WHERE estado_exibicao = 'indisponivel' limit 50`;
+    const query = `SELECT 
+            f.*,
+            ARRAY_AGG(g.nome_genero) as generos
+        FROM filmes f 
+        INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme 
+        INNER JOIN generos g ON g.id_genero = fg.id_genero 
+        WHERE estado_exibicao = 'indisponivel' 
+        GROUP BY f.id_filme
+        LIMIT 50`;
 
     conexao.query(query, (err, results) => {
         if (err) {
@@ -729,7 +753,15 @@ router.get('/indisponivel', async (req, res) => {
  *                   example: "Database query error"
  */
 router.get('/brevemente', async (req, res) => {
-    const query = `SELECT * FROM filmes f INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme INNER JOIN generos g ON g.id_genero = fg.id_genero WHERE estado_exibicao = 'brevemente' limit 50`;
+    const query = `SELECT 
+            f.*,
+            ARRAY_AGG(g.nome_genero) as generos
+        FROM filmes f 
+        INNER JOIN filmes_generos fg ON f.id_filme = fg.id_filme 
+        INNER JOIN generos g ON g.id_genero = fg.id_genero 
+        WHERE estado_exibicao = 'brevemente' 
+        GROUP BY f.id_filme
+        LIMIT 50`;
 
     conexao.query(query, (err, results) => {
         if (err) {
