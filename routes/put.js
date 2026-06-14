@@ -137,4 +137,8 @@ router.put('/lugares/:id_lugar', async (req, res) => {
     }
 });
 
+router.put('estadoFilme/:id_filme', async (req, res) => {
+    const { id_filme } = req.params;
+});
+
 module.exports = router;
