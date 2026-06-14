@@ -14,6 +14,7 @@ const putRouter = require('./routes/put');
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
+const FRONT_URL = process.env.FRONT_URL || 'http://localhost:3000';
 
 function getLocalIP() {
     const nets = os.networkInterfaces();
@@ -30,6 +31,7 @@ function getLocalIP() {
 const LOCAL_IP = getLocalIP();
 
 const allowedOrigins = [
+    FRONT_URL,
     `http://${LOCAL_IP}:3000`,
     `http://localhost:${PORT}`,
     `http://${LOCAL_IP}:${PORT}`,

@@ -88,7 +88,7 @@ router.get('/movies', (req, res) => {
             });
         }
         
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -214,7 +214,7 @@ router.get('/movies/:id_filme', (req, res) => {
             });
         }
         
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -360,7 +360,7 @@ router.get('/sessoes', (req, res) => {
             });
         }
 
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -498,7 +498,7 @@ router.get('/sessoes/:id_filme', (req, res) => {
             });
         }
 
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -555,7 +555,7 @@ router.get('/destaque',async (req, res) => {
                 erro: err.message
             });
         }
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -614,7 +614,7 @@ router.get('/disponivel', async (req, res) => {
                 erro: err.message
             });
         }
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -673,7 +673,7 @@ router.get('/indisponivel', async (req, res) => {
                 erro: err.message
             });
         }
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
@@ -737,7 +737,7 @@ router.get('/brevemente', async (req, res) => {
                 erro: err.message
             });
         }
-        res.json(results);
+        res.json(results.rows);
     });
 });
 
