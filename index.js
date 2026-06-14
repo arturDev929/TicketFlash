@@ -33,6 +33,7 @@ const LOCAL_IP = getLocalIP();
 const allowedOrigins = [
     FRONT_URL,
     `http://${LOCAL_IP}:3000`,
+    `https://ticketflash.onrender.com`,
     `http://localhost:${PORT}`,
     `http://${LOCAL_IP}:${PORT}`,
     /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/,
