@@ -222,136 +222,164 @@ router.get('/movies/:id_filme', (req, res) => {
  * @swagger
  * /sessoes:
  *   get:
- *     summary: Lista todas as sessões de cinema
- *     description: Retorna uma lista completa de todas as sessões cadastradas no sistema
+ *     summary: Lista filmes com informações das sessões
+ *     description: Retorna uma lista de filmes que possuem sessões, com estatísticas agregadas (total de sessões, horários, preços, etc.)
  *     tags: [Sessões]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Lista de sessões obtida com sucesso
+ *         description: Lista de filmes com sessões obtida com sucesso
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 rows:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id_sessao:
- *                         type: string
- *                         format: uuid
- *                         description: ID único da sessão
- *                         example: "123e4567-e89b-12d3-a456-426614174000"
- *                       id_filme:
- *                         type: string
- *                         format: uuid
- *                         description: ID do filme em exibição
- *                         example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
- *                       id_sala:
- *                         type: string
- *                         format: uuid
- *                         description: ID da sala
- *                         example: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
- *                       data_hora_inicio:
- *                         type: string
- *                         format: date-time
- *                         description: Data e hora de início
- *                         example: "2024-12-25T14:00:00.000Z"
- *                       data_hora_fim:
- *                         type: string
- *                         format: date-time
- *                         description: Data e hora de fim
- *                         example: "2024-12-25T16:30:00.000Z"
- *                       tipo_sessao:
- *                         type: string
- *                         enum: [2D, 3D, IMAX, 4DX, D-BOX]
- *                         description: Tipo de sessão
- *                         example: "2D"
- *                       preco_base:
- *                         type: number
- *                         format: float
- *                         description: Preço do ingresso comum
- *                         example: 24.90
- *                       preco_vip:
- *                         type: number
- *                         format: float
- *                         description: Preço do ingresso VIP
- *                         example: 49.90
- *                       preco_acessivel:
- *                         type: number
- *                         format: float
- *                         description: Preço do ingresso acessível/meia-entrada
- *                         example: 12.45
- *                       estado_sessao:
- *                         type: string
- *                         enum: [agendada, em_andamento, concluida, cancelada]
- *                         description: Estado atual da sessão
- *                         example: "agendada"
- *                       criado_por:
- *                         type: string
- *                         format: uuid
- *                         description: ID do funcionário que criou
- *                         example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
- *                       observacoes:
- *                         type: string
- *                         description: Observações adicionais
- *                         nullable: true
- *                         example: "Sessão de Natal"
- *                 rowCount:
- *                   type: integer
- *                   description: Número total de sessões retornadas
- *                   example: 5
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   titulo:
+ *                     type: string
+ *                     description: Título do filme
+ *                     example: "Avatar 3"
+ *                   duracao_minutos:
+ *                     type: integer
+ *                     description: Duração em minutos
+ *                     example: 180
+ *                   ano_lancamento:
+ *                     type: integer
+ *                     description: Ano de lançamento
+ *                     example: 2025
+ *                   sinopse:
+ *                     type: string
+ *                     description: Sinopse do filme
+ *                     example: "Jake Sully e Neytiri enfrentam novos desafios..."
+ *                   classificacao_etaria:
+ *                     type: string
+ *                     description: Classificação indicativa
+ *                     example: "12"
+ *                   nota_media:
+ *                     type: number
+ *                     format: float
+ *                     description: Nota média do filme
+ *                     example: 4.8
+ *                   cartaz_url:
+ *                     type: string
+ *                     description: URL do cartaz
+ *                     example: "https://example.com/poster.jpg"
+ *                   trailer_url:
+ *                     type: string
+ *                     description: URL do trailer
+ *                     example: "https://youtube.com/watch?v=..."
+ *                   estado_exibicao:
+ *                     type: string
+ *                     enum: [disponivel, indisponivel, brevemente]
+ *                     description: Estado de exibição
+ *                     example: "disponivel"
+ *                   pais_origem:
+ *                     type: string
+ *                     description: País de origem
+ *                     example: "EUA"
+ *                   idioma_original:
+ *                     type: string
+ *                     description: Idioma original
+ *                     example: "Inglês"
+ *                   total_sessoes:
+ *                     type: integer
+ *                     description: Número total de sessões do filme
+ *                     example: 5
+ *                   primeira_sessao:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Data e hora da primeira sessão
+ *                     example: "2025-12-20T14:00:00.000Z"
+ *                   ultima_sessao:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Data e hora da última sessão
+ *                     example: "2025-12-25T22:00:00.000Z"
+ *                   salas_disponiveis:
+ *                     type: string
+ *                     description: Lista de salas disponíveis (separadas por vírgula)
+ *                     example: "Sala IMAX, Sala 3D, Sala VIP"
+ *                   preco_minimo:
+ *                     type: number
+ *                     format: float
+ *                     description: Menor preço entre todas as sessões
+ *                     example: 25.00
+ *                   preco_maximo:
+ *                     type: number
+ *                     format: float
+ *                     description: Maior preço entre todas as sessões
+ *                     example: 45.00
  *             example:
- *               rows:
- *                 - id_sessao: "123e4567-e89b-12d3-a456-426614174000"
- *                   id_filme: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
- *                   id_sala: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
- *                   data_hora_inicio: "2024-12-25T14:00:00.000Z"
- *                   data_hora_fim: "2024-12-25T16:30:00.000Z"
- *                   tipo_sessao: "2D"
- *                   preco_base: 24.90
- *                   preco_vip: 49.90
- *                   preco_acessivel: 12.45
- *                   estado_sessao: "agendada"
- *                   criado_por: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
- *                   observacoes: "Sessão de Natal"
- *                 - id_sessao: "234e5678-f90a-23e4-b567-537725285111"
- *                   id_filme: "1849f7e0-e31e-4c61-91cd-5809d05419eb"
- *                   id_sala: "b4c9d0e2-3f5a-5b6c-9d7e-8f0a2b3c4d5e"
- *                   data_hora_inicio: "2024-12-25T20:00:00.000Z"
- *                   data_hora_fim: "2024-12-25T23:00:00.000Z"
- *                   tipo_sessao: "IMAX"
- *                   preco_base: 49.90
- *                   preco_vip: 89.90
- *                   preco_acessivel: 24.95
- *                   estado_sessao: "agendada"
- *                   criado_por: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
- *                   observacoes: ""
- *               rowCount: 2
- *       401:
- *         description: Não autorizado - Token inválido ou ausente
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "Token não fornecido"
+ *               - titulo: "Avatar 3"
+ *                 duracao_minutos: 180
+ *                 ano_lancamento: 2025
+ *                 sinopse: "Jake Sully e Neytiri enfrentam novos desafios em Pandora..."
+ *                 classificacao_etaria: "12"
+ *                 nota_media: 4.8
+ *                 cartaz_url: "https://example.com/posters/avatar3.jpg"
+ *                 trailer_url: "https://youtube.com/watch?v=avatar3"
+ *                 estado_exibicao: "disponivel"
+ *                 pais_origem: "EUA"
+ *                 idioma_original: "Inglês"
+ *                 total_sessoes: 5
+ *                 primeira_sessao: "2025-12-20T14:00:00.000Z"
+ *                 ultima_sessao: "2025-12-25T22:00:00.000Z"
+ *                 salas_disponiveis: "Sala IMAX, Sala 3D, Sala VIP"
+ *                 preco_minimo: 25.00
+ *                 preco_maximo: 45.00
  *       500:
  *         description: Erro interno do servidor
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               erro: "Erro na consulta ao banco de dados: connection timeout"
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   example: "Erro na consulta ao banco de dados"
  */
 
 router.get('/sessoes', (req, res) => {    
-    const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador  limit 1000 
-`;
+    const query = `SELECT 
+                        f.titulo,
+                        f.duracao_minutos,
+                        f.ano_lancamento,
+                        f.sinopse,
+                        f.classificacao_etaria,
+                        f.nota_media,
+                        f.cartaz_url,
+                        f.trailer_url,
+                        f.estado_exibicao,
+                        f.pais_origem,
+                        f.idioma_original,
+                        -- Agregar informações das sessões (opcional)
+                        COUNT(s.id_sessao) as total_sessoes,
+                        MIN(s.data_hora_inicio) as primeira_sessao,
+                        MAX(s.data_hora_fim) as ultima_sessao,
+                        -- Agregar informações das salas
+                        STRING_AGG(DISTINCT sl.nome_sala, ', ') as salas_disponiveis,
+                        -- Agregar preços (se quiser)
+                        MIN(s.preco) as preco_minimo,
+                        MAX(s.preco) as preco_maximo
+                    FROM filmes f 
+                    INNER JOIN sessoes s ON f.id_filme = s.id_filme 
+                    INNER JOIN salas sl ON sl.id_sala = s.id_sala 
+                    INNER JOIN funcionarios fr ON fr.id_funcionario = s.criado_por 
+                    INNER JOIN utilizadores u ON fr.id_utilizador = u.id_utilizador 
+                    GROUP BY 
+                        f.id_filme,
+                        f.titulo,
+                        f.duracao_minutos,
+                        f.ano_lancamento,
+                        f.sinopse,
+                        f.classificacao_etaria,
+                        f.nota_media,
+                        f.cartaz_url,
+                        f.trailer_url,
+                        f.estado_exibicao,
+                        f.pais_origem,
+                        f.idioma_original
+                    LIMIT 1000`;
 
     conexao.query(query, (err, results) => {
         if (err) {
@@ -366,13 +394,9 @@ router.get('/sessoes', (req, res) => {
 
 /**
  * @swagger
- * /sessoes/{id_filme}:
+ * /sessoes-completas/{id_filme}:
  *   get:
- *     summary: Busca todas as sessões de um filme específico
- *     description: Retorna todas as sessões disponíveis para um filme, incluindo informações do filme, sala e funcionário responsável
- *     tags: [Sessões]
- *     security:
- *       - bearerAuth: []
+ *     summary: Busca sessões completas de um filme
  *     parameters:
  *       - in: path
  *         name: id_filme
@@ -380,127 +404,139 @@ router.get('/sessoes', (req, res) => {
  *         schema:
  *           type: string
  *           format: uuid
- *         description: UUID do filme
- *         example: "2c1c349c-b282-45fa-a6da-a83a8e5bad3c"
  *     responses:
  *       200:
- *         description: Sucesso - Sessões do filme encontradas
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 rows:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       titulo:
- *                         type: string
- *                       duracao_minutos:
- *                         type: integer
- *                       ano_lancamento:
- *                         type: integer
- *                       data_hora_inicio:
- *                         type: string
- *                         format: date-time
- *                       data_hora_fim:
- *                         type: string
- *                         format: date-time
- *                       preco:
- *                         type: number
- *                       nome_sala:
- *                         type: string
- *                       capacidade_total:
- *                         type: integer
- *                       tipo_sala:
- *                         type: string
- *                       estado_sessao:
- *                         type: string
- *                       nome_completo:
- *                         type: string
- *                       numero_funcionario:
- *                         type: string
- *                       estado_sala:
- *                         type: string
- *                       sinopse:
- *                         type: string
- *                       classificacao_etaria:
- *                         type: string
- *                       nota_media:
- *                         type: number
- *                       cartaz_url:
- *                         type: string
- *                       trailer_url:
- *                         type: string
- *                       estado_exibicao:
- *                         type: string
- *                       pais_origem:
- *                         type: string
- *                       idioma_original:
- *                         type: string
- *                       codigos_lugar:
- *                         type: string
- *                         description: Códigos dos lugares concatenados
- *                       codigos:
- *                         type: string
- *                         description: Códigos concatenados
- *                 rowCount:
- *                   type: integer
- *             example:
- *               rows: [
- *                 {
- *                   titulo: "A Origem",
- *                   duracao_minutos: 148,
- *                   ano_lancamento: 2010,
- *                   data_hora_inicio: "2024-12-25T14:00:00.000Z",
- *                   data_hora_fim: "2024-12-25T16:28:00.000Z",
- *                   preco: 25.00,
- *                   nome_sala: "Sala 1 - IMAX",
- *                   capacidade_total: 120,
- *                   tipo_sala: "normal",
- *                   estado_sessao: "agendada",
- *                   nome_completo: "João Silva",
- *                   numero_funcionario: "FUNC001",
- *                   estado_sala: "disponivel",
- *                   sinopse: "Um ladrão que invade os sonhos...",
- *                   classificacao_etaria: "14",
- *                   nota_media: 8.8,
- *                   cartaz_url: "https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg",
- *                   trailer_url: "https://youtube.com/...",
- *                   estado_exibicao: "em_cartaz",
- *                   pais_origem: "EUA",
- *                   idioma_original: "Inglês",
- *                   codigos_lugar: "A1, A2, A3, B1, B2",
- *                   codigos: "1, 2, 3, 4, 5"
- *                 }
- *               ]
- *               rowCount: 1
- *       400:
- *         description: Requisição inválida
- *       401:
- *         description: Não autorizado
- *       404:
- *         description: Filme não encontrado
- *       500:
- *         description: Erro interno
+ *         description: Sucesso
  */
+router.get('/sessoes-completas/:id_filme', async (req, res) => {
+    try {
+        const { id_filme } = req.params;
 
-router.get('/sessoes/:id_filme', (req, res) => {
-    const { id_filme } = req.params;
-
-    const query = `SELECT titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco,nome_sala,capacidade_total,tipo_sala,estado_sessao,nome_completo,numero_funcionario,estado_sala,sinopse, classificacao_etaria,nota_media,cartaz_url,trailer_url,estado_exibicao,pais_origem,idioma_original, STRING_AGG(lr.codigo_lugar, ', ' ORDER BY lr.codigo_lugar) as codigos_lugar, STRING_AGG(lr.codigo::text, ', ' ORDER BY lr.codigo_lugar) as codigos FROM filmes f inner join sessoes s on f.id_filme= s.id_filme inner join salas sl on sl.id_sala=s.id_sala inner join funcionarios fr on fr.id_funcionario=s.criado_por inner join utilizadores u on fr.id_utilizador=u.id_utilizador inner join lugares lr on sl.id_sala = lr.id_sala WHERE f.id_filme = $1 GROUP BY f.titulo, duracao_minutos, ano_lancamento, data_hora_inicio, data_hora_fim, preco, nome_sala, capacidade_total, tipo_sala, estado_sessao, nome_completo, numero_funcionario, estado_sala, sinopse, classificacao_etaria, nota_media, cartaz_url, trailer_url, estado_exibicao, pais_origem, idioma_original`;
-
-    conexao.query(query, [id_filme], (err, results) => {
-        if (err) {
-            return res.status(500).json({
-                erro: err.message
+        // Validação básica do UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(id_filme)) {
+            return res.status(400).json({
+                success: false,
+                erro: 'ID do filme inválido. Formato UUID esperado.'
             });
         }
 
-        res.json(results.rows);
-    });
+        const query = `
+                        SELECT 
+                            f.id_filme,
+                            f.titulo,
+                            s.id_sessao,
+                            s.tipo_sessao,
+                            s.preco,
+                            s.observacoes,
+                            s.data_hora_inicio,
+                            s.data_hora_fim,
+                            s.estado_sessao,
+                            sl.id_sala,
+                            sl.nome_sala,
+                            sl.capacidade_total,
+                            sl.tipo_sala,
+                            sl.estado_sala,
+                            sl.coluna,
+                            sl.fila,
+                            -- Lugares agrupados em JSON ordenado por codigo_lugar
+                            json_agg(
+                                json_build_object(
+                                    'id_lugar', l.id_lugar,
+                                    'codigo_lugar', l.codigo_lugar,
+                                    'estado_permanente', l.estado_permanente,
+                                    'estado_compra', l.estado_compra
+                                )
+                                ORDER BY l.codigo_lugar  -- Ordena pelo código do lugar
+                            ) as lugares
+                        FROM filmes f 
+                        INNER JOIN sessoes s ON f.id_filme = s.id_filme 
+                        INNER JOIN salas sl ON sl.id_sala = s.id_sala 
+                        INNER JOIN lugares l ON l.id_sala = sl.id_sala 
+                        WHERE f.id_filme = $1
+                        GROUP BY 
+                            f.id_filme, f.titulo,
+                            s.id_sessao, s.tipo_sessao, s.preco, s.observacoes, 
+                            s.data_hora_inicio, s.data_hora_fim, s.estado_sessao,
+                            sl.id_sala, sl.nome_sala, sl.capacidade_total, sl.tipo_sala, sl.estado_sala, sl.coluna, sl.fila
+                        ORDER BY s.data_hora_inicio`;
+
+        const results = await conexao.query(query, [id_filme]);
+
+        if (results.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                erro: 'Nenhuma sessão disponível para este filme'
+            });
+        }
+
+        // Formatar a resposta
+        const filmesAgrupados = results.rows.map(row => ({
+            filme: {
+                id: row.id_filme,
+                titulo: row.titulo
+            },
+            sessoes: results.rows
+                .filter(r => r.id_filme === row.id_filme)
+                .map(sessao => ({
+                    id: sessao.id_sessao,
+                    tipo: sessao.tipo_sessao,
+                    preco: parseFloat(sessao.preco),
+                    observacoes: sessao.observacoes,
+                    data_hora_inicio: sessao.data_hora_inicio,
+                    data_hora_fim: sessao.data_hora_fim,
+                    estado: sessao.estado_sessao,
+                    sala: {
+                        id: sessao.id_sala,
+                        nome: sessao.nome_sala,
+                        capacidade_total: sessao.capacidade_total,
+                        tipo: sessao.tipo_sala,
+                        estado: sessao.estado_sala,
+                        configuracao: {
+                            colunas: sessao.coluna,
+                            filas: sessao.fila
+                        }
+                    },
+                    lugares: sessao.lugares
+                }))
+        }));
+
+        // Remover duplicatas (pegar apenas o primeiro)
+        const respostaUnica = filmesAgrupados.filter((filme, index, self) =>
+            index === self.findIndex(f => f.filme.id === filme.filme.id)
+        );
+
+        res.status(200).json({
+            success: true,
+            data: respostaUnica[0] || { filme: null, sessoes: [] }
+        });
+
+    } catch (error) {
+        console.error('Erro ao buscar sessões:', error);
+        
+        // Tratamento específico para erros do banco de dados
+        if (error.code) {
+            switch (error.code) {
+                case '42P01':
+                    return res.status(500).json({
+                        success: false,
+                        erro: 'Erro de configuração no banco de dados'
+                    });
+                default:
+                    return res.status(500).json({
+                        success: false,
+                        erro: 'Erro interno no servidor'
+                    });
+            }
+        }
+        
+        res.status(500).json({
+            success: false,
+            erro: 'Erro ao processar a requisição'
+        });
+    }
 });
+
 
 /**
  * @swagger
