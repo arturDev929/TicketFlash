@@ -516,4 +516,217 @@ router.put('/destaque/:id_filme', async (req, res) => {
     });
 });
 
+/**
+ * @swagger
+ * /user/{id}:
+ *   put:
+ *     summary: Atualiza um utilizador
+ *     description: Atualiza os dados de um utilizador e seu cargo filtrando pelo ID
+ *     tags: [Utilizadores]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID do utilizador
+ *         schema:
+ *           type: string
+ *           example: "550e8400-e29b-41d4-a716-446655440000"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *                 description: Nome do utilizador
+ *                 example: "João Silva"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email do utilizador
+ *                 example: "joao.silva@empresa.com"
+ *               telefone:
+ *                 type: string
+ *                 description: Número de telefone
+ *                 example: "+351 912345678"
+ *               tipo_utilizador:
+ *                 type: string
+ *                 description: Tipo de utilizador
+ *                 example: "admin"
+ *               estado:
+ *                 type: string
+ *                 description: Estado do utilizador
+ *                 example: "ativo"
+ *               cargo:
+ *                 type: string
+ *                 description: Cargo do funcionário
+ *                 example: "Desenvolvedor"
+ *     responses:
+ *       200:
+ *         description: Utilizador atualizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensagem:
+ *                   type: string
+ *                   description: Mensagem de sucesso
+ *                   example: "Utilizador atualizado com sucesso"
+ *                 utilizador:
+ *                   type: object
+ *                   properties:
+ *                     id_utilizador:
+ *                       type: string
+ *                       description: ID do utilizador
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     nome:
+ *                       type: string
+ *                       description: Nome do utilizador
+ *                       example: "João Silva"
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       description: Email do utilizador
+ *                       example: "joao.silva@empresa.com"
+ *                     telefone:
+ *                       type: string
+ *                       description: Número de telefone
+ *                       example: "+351 912345678"
+ *                     tipo_utilizador:
+ *                       type: string
+ *                       description: Tipo de utilizador
+ *                       example: "admin"
+ *                     estado:
+ *                       type: string
+ *                       description: Estado do utilizador
+ *                       example: "ativo"
+ *                     data_registo:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Data de registo
+ *                       example: "2024-01-15T10:30:00Z"
+ *                     id_funcionario:
+ *                       type: string
+ *                       description: ID do funcionário
+ *                       example: "660e8400-e29b-41d4-a716-446655440001"
+ *                     cargo:
+ *                       type: string
+ *                       description: Cargo do funcionário
+ *                       example: "Desenvolvedor"
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem de erro
+ *                   example: "Nome e email são obrigatórios"
+ *       404:
+ *         description: Utilizador não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensagem:
+ *                   type: string
+ *                   description: Mensagem de erro
+ *                   example: "Utilizador não encontrado"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem de erro
+ *                   example: "Erro ao atualizar utilizador"
+ *                 detalhe:
+ *                   type: string
+ *                   description: Detalhe do erro
+ *                   example: "Database connection error"
+ */
+router.put('/user/:id', (req, res) => {
+    const id = req.params.id;
+    const { nome, email, telefone, tipo_utilizador, estado, cargo } = req.body;
+    
+    if (!nome || !email) {
+        return res.status(400).json({
+            erro: "Nome e email são obrigatórios"
+        });
+    }
+    
+    const queryUtilizador = `
+        UPDATE utilizadores 
+        SET nome_completo = $1, 
+            email = $2, 
+            telefone = $3,
+            tipo_utilizador = $4,
+            estado_conta = $5
+        WHERE id_utilizador = $6 
+        RETURNING *
+    `;
+    
+    conexao.query(queryUtilizador, [nome, email, telefone, tipo_utilizador, estado, id], (err, resultUtilizador) => {
+        if (err) {
+            return res.status(500).json({
+                erro: "Erro ao atualizar utilizador",
+                detalhe: err.message
+            });
+        }
+        
+        if (resultUtilizador.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: "Utilizador não encontrado"
+            });
+        }
+        
+        // Atualizar tabela funcionarios
+        const queryFuncionario = `
+            UPDATE funcionarios 
+            SET cargo = $1
+            WHERE id_utilizador = $2 
+            RETURNING *
+        `;
+        
+        conexao.query(queryFuncionario, [cargo, id], (err, resultFuncionario) => {
+            if (err) {
+                return res.status(500).json({
+                    erro: "Erro ao atualizar cargo do funcionário",
+                    detalhe: err.message
+                });
+            }
+            
+            // Buscar dados completos atualizados
+            const queryFinal = `
+                SELECT * FROM utilizadores u 
+                INNER JOIN funcionarios f ON u.id_utilizador = f.id_utilizador 
+                WHERE u.id_utilizador = $1
+            `;
+            
+            conexao.query(queryFinal, [id], (err, resultFinal) => {
+                if (err) {
+                    return res.status(500).json({
+                        erro: "Erro ao buscar dados atualizados",
+                        detalhe: err.message
+                    });
+                }
+                
+                res.status(200).json({
+                    mensagem: "Utilizador atualizado com sucesso",
+                    utilizador: resultFinal.rows[0]
+                });
+            });
+        });
+    });
+});
+
 module.exports = router;
