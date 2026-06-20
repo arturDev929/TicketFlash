@@ -515,4 +515,5 @@ router.put('/destaque/:id_filme', async (req, res) => {
         });
     });
 });
+
 module.exports = router;

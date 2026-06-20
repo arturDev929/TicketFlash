@@ -422,44 +422,51 @@ router.get('/sessoes-completas/:id_filme', async (req, res) => {
         }
 
         const query = `
-                        SELECT 
-                            f.id_filme,
-                            f.titulo,
-                            s.id_sessao,
-                            s.tipo_sessao,
-                            s.preco,
-                            s.observacoes,
-                            s.data_hora_inicio,
-                            s.data_hora_fim,
-                            s.estado_sessao,
-                            sl.id_sala,
-                            sl.nome_sala,
-                            sl.capacidade_total,
-                            sl.tipo_sala,
-                            sl.estado_sala,
-                            sl.coluna,
-                            sl.fila,
-                            -- Lugares agrupados em JSON ordenado por codigo_lugar
-                            json_agg(
-                                json_build_object(
-                                    'id_lugar', l.id_lugar,
-                                    'codigo_lugar', l.codigo_lugar,
-                                    'estado_permanente', l.estado_permanente,
-                                    'estado_compra', l.estado_compra
-                                )
-                                ORDER BY l.codigo_lugar  -- Ordena pelo código do lugar
-                            ) as lugares
-                        FROM filmes f 
-                        INNER JOIN sessoes s ON f.id_filme = s.id_filme 
-                        INNER JOIN salas sl ON sl.id_sala = s.id_sala 
-                        INNER JOIN lugares l ON l.id_sala = sl.id_sala 
-                        WHERE f.id_filme = $1
-                        GROUP BY 
-                            f.id_filme, f.titulo,
-                            s.id_sessao, s.tipo_sessao, s.preco, s.observacoes, 
-                            s.data_hora_inicio, s.data_hora_fim, s.estado_sessao,
-                            sl.id_sala, sl.nome_sala, sl.capacidade_total, sl.tipo_sala, sl.estado_sala, sl.coluna, sl.fila
-                        ORDER BY s.data_hora_inicio`;
+    SELECT 
+        f.id_filme,
+        f.titulo,
+        s.id_sessao,
+        s.tipo_sessao,
+        s.preco,
+        s.observacoes,
+        s.data_hora_inicio,
+        s.data_hora_fim,
+        s.estado_sessao,
+        sl.id_sala,
+        sl.nome_sala,
+        sl.capacidade_total,
+        sl.tipo_sala,
+        sl.estado_sala,
+        sl.coluna,
+        sl.fila,
+        -- Lugares agrupados em JSON com informações de ocupação
+        json_agg(
+            json_build_object(
+                'id_lugar', l.id_lugar,
+                'codigo_lugar', l.codigo_lugar,
+                'estado_permanente', l.estado_permanente,
+                'status_ocupacao', COALESCE(lo.status, 'Livre'),
+                'id_ocupacao', lo.id_lo,
+                'data_ocupacao', lo.data_reserva
+            )
+            ORDER BY l.codigo_lugar
+        ) as lugares
+    FROM filmes f 
+    INNER JOIN sessoes s ON f.id_filme = s.id_filme 
+    INNER JOIN salas sl ON sl.id_sala = s.id_sala 
+    INNER JOIN lugares l ON l.id_sala = sl.id_sala 
+    LEFT JOIN lugares_ocupados lo ON lo.id_sala = l.id_sala 
+        AND lo.id_lugar = l.id_lugar
+        AND lo.id_sessao = s.id_sessao
+    WHERE f.id_filme = $1
+    GROUP BY 
+        f.id_filme, f.titulo,
+        s.id_sessao, s.tipo_sessao, s.preco, s.observacoes, 
+        s.data_hora_inicio, s.data_hora_fim, s.estado_sessao,
+        sl.id_sala, sl.nome_sala, sl.capacidade_total, sl.tipo_sala, 
+        sl.estado_sala, sl.coluna, sl.fila
+    ORDER BY s.data_hora_inicio
+`;
 
         const results = await conexao.query(query, [id_filme]);
 
@@ -497,7 +504,11 @@ router.get('/sessoes-completas/:id_filme', async (req, res) => {
                             filas: sessao.fila
                         }
                     },
-                    lugares: sessao.lugares
+                    lugares: sessao.lugares.map(lugar => ({
+                        ...lugar,
+                        // Garantir que o status de ocupação seja tratado
+                        status_ocupacao: lugar.status_ocupacao || 'Livre'
+                    }))
                 }))
         }));
 

@@ -5,6 +5,7 @@ const { criptografarSenha, gerarSenhaParaEmail, gerarCodigo,gerarId } = require(
 const { enviarSenhaAcesso } = require("../utils/email");
 const {verificarToken} = require("../middleware/authMiddleware");
 const { v4: uuidv4 } = require("uuid");
+const QRCode = require('qrcode');
 
 /**
  * @swagger
@@ -953,11 +954,19 @@ router.post('/sessoes', async (req, res) => {
  * @swagger
  * /compras:
  *   post:
- *     summary: Cria uma nova compra com bilhetes e lugares
- *     description: Registra uma compra, os bilhetes e os lugares associados em uma única transação. Após a compra, os lugares ficam com estado_compra='ocupado'
+ *     summary: Registra uma nova compra de bilhetes
+ *     description: |
+ *       Cria uma nova compra com os lugares selecionados para uma sessão.
+ *       
+ *       **Regras de negócio:**
+ *       - Sessão deve existir e não estar cancelada
+ *       - Sessão não pode ter iniciado
+ *       - Lugares devem existir e pertencer à sala da sessão
+ *       - Lugares não podem estar ocupados (status 'reservado' ou 'ocupado')
+ *       - Mínimo de 1 lugar por compra
+ *       - Gera número de factura automático
+ *       - Gera QR Code para identificação da compra
  *     tags: [Compras]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -967,297 +976,566 @@ router.post('/sessoes', async (req, res) => {
  *             required:
  *               - id_cliente
  *               - forma_pagamento
- *               - bilhetes
+ *               - sessao_id
+ *               - lugares
  *             properties:
  *               id_cliente:
  *                 type: string
- *                 format: uuid
- *                 description: UUID do cliente (utilizador)
- *                 example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *                 description: ID do cliente
+ *                 example: "cliente_001"
  *               forma_pagamento:
  *                 type: string
- *                 enum: [multicaixa, dinheiro, cartao_credito, cartao_debito, pix_angola]
+ *                 enum: [cartao_credito, cartao_debito, dinheiro, pix, multicaixa]
  *                 description: Forma de pagamento
  *                 example: "multicaixa"
- *               bilhetes:
+ *               sessao_id:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID da sessão
+ *                 example: "dcad0787-7de1-483e-b64b-aea3b3a87256"
+ *               lugares:
  *                 type: array
- *                 description: Lista de bilhetes a serem comprados
+ *                 description: Lista de lugares selecionados
  *                 minItems: 1
  *                 items:
  *                   type: object
  *                   required:
- *                     - id_sessao
- *                     - tipo_bilhete
- *                     - preco_pago
- *                     - id_lugares
+ *                     - id_lugar
  *                   properties:
- *                     id_sessao:
+ *                     id_lugar:
  *                       type: string
- *                       format: uuid
- *                       description: UUID da sessão
- *                       example: "123e4567-e89b-12d3-a456-426614174000"
- *                     tipo_bilhete:
- *                       type: string
- *                       enum: [inteiro, meio, vip, acessivel]
- *                       description: Tipo do bilhete
- *                       example: "vip"
- *                     preco_pago:
- *                       type: number
- *                       format: float
- *                       minimum: 0
- *                       description: Preço pago pelo bilhete
- *                       example: 49.90
- *                     id_lugares:
- *                       type: array
- *                       description: IDs dos lugares ocupados por este bilhete
- *                       minItems: 1
- *                       items:
- *                         type: string
- *                         format: uuid
- *                         example: "lugar-uuid-123"
+ *                       description: ID do lugar
+ *                       example: "1"
  *     responses:
  *       201:
- *         description: Compra criada com sucesso
+ *         description: Compra realizada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Compra realizada com sucesso"
+ *                 compra:
+ *                   type: object
+ *                   properties:
+ *                     id_compra:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440001"
+ *                     id_cliente:
+ *                       type: string
+ *                       example: "cliente_001"
+ *                     data_compra:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-19T14:30:00.000Z"
+ *                     valor_total:
+ *                       type: number
+ *                       format: float
+ *                       example: 45.50
+ *                     forma_pagamento:
+ *                       type: string
+ *                       example: "multicaixa"
+ *                     estado_pagamento:
+ *                       type: string
+ *                       enum: [pendente, pago, cancelado]
+ *                       example: "pendente"
+ *                     numero_factura:
+ *                       type: string
+ *                       example: "FACT-20260619-0001"
+ *                     qr_code:
+ *                       type: string
+ *                       example: "eyJpZF9jb21wcmEiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDEifQ=="
+ *                     lugares_ocupados:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id_lo:
+ *                             type: string
+ *                             example: "1"
+ *                           id_lugar:
+ *                             type: string
+ *                             example: "1"
+ *                           id_sala:
+ *                             type: string
+ *                             example: "1"
+ *                           id_compra:
+ *                             type: string
+ *                             format: uuid
+ *                             example: "550e8400-e29b-41d4-a716-446655440001"
+ *                           id_sessao:
+ *                             type: string
+ *                             format: uuid
+ *                             example: "dcad0787-7de1-483e-b64b-aea3b3a87256"
+ *                           status:
+ *                             type: string
+ *                             enum: [reservado, ocupado, cancelado]
+ *                             example: "reservado"
  *       400:
- *         description: Requisição inválida
- *       401:
- *         description: Não autorizado
+ *         description: Dados inválidos na requisição
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Preencha todos os campos obrigatórios e selecione pelo menos um lugar"
+ *                 erro:
+ *                   type: string
+ *                   example: "Detalhes do erro"
+ *       404:
+ *         description: Sessão ou lugares não encontrados
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Sessão não encontrada ou já foi cancelada"
+ *                 lugares_nao_encontrados:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["5", "6"]
  *       409:
- *         description: Conflito - Lugares ocupados
+ *         description: Conflito - lugares já ocupados ou sessão indisponível
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Os lugares 1, 3 já estão ocupados para esta sessão"
+ *                 lugares_ocupados:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["1", "3"]
+ *                 detalhes:
+ *                   type: object
+ *                   properties:
+ *                     inicio_sessao:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-19T15:00:00.000Z"
+ *                     agora:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-19T15:30:00.000Z"
  *       500:
  *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao processar compra"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database connection error"
  */
 
-router.post('/compras',verificarToken, async (req, res) => {
-    const { id_cliente, forma_pagamento, bilhetes } = req.body;
-    
-    // Validações básicas
-    if (!id_cliente || !forma_pagamento || !bilhetes || bilhetes.length === 0) {
+router.post('/compras', async (req, res) => {
+    const {
+        id_cliente,
+        forma_pagamento,
+        sessao_id,
+        lugares
+    } = req.body;
+
+    const id_compra = uuidv4();
+
+    // Validação de campos obrigatórios
+    if (!id_cliente || !forma_pagamento || !sessao_id || !lugares || lugares.length === 0) {
+        console.log('Erro de validação: Campos obrigatórios faltando', {
+            id_cliente,
+            forma_pagamento,
+            sessao_id,
+            lugares
+        });
         return res.status(400).json({
             sucesso: false,
-            mensagem: "Preencha todos os campos obrigatórios: id_cliente, forma_pagamento, bilhetes"
+            mensagem: "Preencha todos os campos obrigatórios e selecione pelo menos um lugar"
         });
     }
 
-    // Validar forma de pagamento
-    const formasValidas = ['multicaixa', 'dinheiro', 'cartao_credito', 'cartao_debito', 'pix_angola'];
-    if (!formasValidas.includes(forma_pagamento)) {
+    // Validação de forma de pagamento
+    const formasPermitidas = ['cartao_credito', 'cartao_debito', 'dinheiro', 'pix', 'multicaixa'];
+
+    if (!formasPermitidas.includes(forma_pagamento)) {
+        console.log('Erro de validação: Forma de pagamento inválida', { forma_pagamento });
         return res.status(400).json({
             sucesso: false,
-            mensagem: "Forma de pagamento inválida. Opções: multicaixa, dinheiro, cartao_credito, cartao_debito, pix_angola"
+            mensagem: "Forma de pagamento inválida. Opções: cartao_credito, cartao_debito, dinheiro, pix, multicaixa"
         });
-    }
-
-    // Calcular valor total
-    let valorTotal = 0;
-    for (const bilhete of bilhetes) {
-        if (!bilhete.preco_pago || bilhete.preco_pago <= 0) {
-            return res.status(400).json({
-                sucesso: false,
-                mensagem: "Preço do bilhete inválido"
-            });
-        }
-        valorTotal += bilhete.preco_pago;
     }
 
     try {
-        // Verificar se os lugares estão disponíveis
-        for (const bilhete of bilhetes) {
-            const { id_sessao, id_lugares } = bilhete;
-            
-            if (!id_sessao || !id_lugares || id_lugares.length === 0) {
-                return res.status(400).json({
-                    sucesso: false,
-                    mensagem: "Cada bilhete deve ter id_sessao e pelo menos um id_lugar"
-                });
-            }
+        await conexao.query('BEGIN');
+        
+        // Configurar timeouts para evitar deadlocks
+        await conexao.query('SET LOCAL lock_timeout = 5000');
+        await conexao.query('SET LOCAL statement_timeout = 10000');
 
-            // Verificar lugares duplicados na mesma compra
-            const todosLugares = bilhetes.flatMap(b => b.id_lugares);
-            const lugaresUnicos = new Set(todosLugares);
-            if (todosLugares.length !== lugaresUnicos.size) {
-                return res.status(400).json({
-                    sucesso: false,
-                    mensagem: "Existem lugares duplicados na compra"
-                });
-            }
+        // 1. Verificar se a sessão existe e obter dados
+        const sessaoQuery = `
+            SELECT id_sessao, id_sala, preco, data_hora_inicio, data_hora_fim
+            FROM sessoes 
+            WHERE id_sessao = $1 
+            AND estado_sessao NOT IN ('cancelada')
+        `;
 
-            // Verificar se lugares já estão ocupados (estado_compra = 'ocupado')
-            const lugaresOcupadosQuery = `
-                SELECT id_lugar, estado_compra
-                FROM lugares 
-                WHERE id_lugar = ANY($1) AND estado_compra = 'ocupado'
-            `;
-            
-            const lugaresOcupados = await conexao.query(lugaresOcupadosQuery, [id_lugares]);
-            
-            if (lugaresOcupados.rows.length > 0) {
-                return res.status(409).json({
-                    sucesso: false,
-                    mensagem: `Os seguintes lugares já estão ocupados: ${lugaresOcupados.rows.map(l => l.id_lugar).join(', ')}`
-                });
-            }
+        const sessaoResult = await conexao.query(sessaoQuery, [sessao_id]);
 
-            // Verificar se lugares estão permanentemente inativos ou em manutenção
-            const lugaresIndisponiveisQuery = `
-                SELECT id_lugar, estado_permanente
-                FROM lugares 
-                WHERE id_lugar = ANY($1) AND estado_permanente IN ('inactivo', 'manutencao')
-            `;
-            
-            const lugaresIndisponiveis = await conexao.query(lugaresIndisponiveisQuery, [id_lugares]);
-            
-            if (lugaresIndisponiveis.rows.length > 0) {
-                return res.status(409).json({
-                    sucesso: false,
-                    mensagem: `Os seguintes lugares estão permanentemente indisponíveis: ${lugaresIndisponiveis.rows.map(l => l.id_lugar).join(', ')}`
-                });
-            }
+        if (sessaoResult.rows.length === 0) {
+            console.log('Erro: Sessão não encontrada ou cancelada', { sessao_id });
+            await conexao.query('ROLLBACK');
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Sessão não encontrada ou já foi cancelada"
+            });
         }
 
-        // Gerar número da fatura
-        const numeroFactura = gerarCodigo();
-        const id_compra = gerarId();
+        const sessao = sessaoResult.rows[0];
+        const { id_sala, preco, data_hora_inicio } = sessao;
+
+        // Verificar se a sessão já passou
+        const agora = new Date();
+        const inicioSessao = new Date(data_hora_inicio);
+        
+        if (agora >= inicioSessao) {
+            console.log('Erro: Sessão já iniciada ou encerrada', { 
+                agora, 
+                inicioSessao 
+            });
+            await conexao.query('ROLLBACK');
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Não é possível comprar ingressos para uma sessão que já iniciou"
+            });
+        }
+
+        // 2. Validar lugares e verificar se pertencem à sala
+        const lugarIds = lugares.map(l => l.id_lugar);
+        const lugaresQuery = `
+            SELECT id_lugar, id_sala, estado_permanente, codigo_lugar
+            FROM lugares 
+            WHERE id_lugar = ANY($1::text[]) 
+            AND id_sala = $2
+            AND estado_permanente = 'activo'
+        `;
+
+        const lugaresResult = await conexao.query(lugaresQuery, [lugarIds, id_sala]);
+
+        if (lugaresResult.rows.length !== lugares.length) {
+            const encontrados = lugaresResult.rows.map(r => r.id_lugar);
+            const faltantes = lugarIds.filter(id => !encontrados.includes(id));
+            
+            console.log('Erro: Lugares não encontrados ou não pertencem à sala', {
+                lugaresSolicitados: lugarIds,
+                lugaresEncontrados: encontrados,
+                lugaresFaltantes: faltantes,
+                id_sala
+            });
+            await conexao.query('ROLLBACK');
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: `Um ou mais lugares não existem, estão inativos ou não pertencem à sala da sessão`,
+                lugares_faltantes: faltantes
+            });
+        }
+
+        // 3. Limpar reservas pendentes expiradas (15 minutos)
+        const limparPendentesQuery = `
+            DELETE FROM lugares_ocupados 
+            WHERE id_sessao = $1 
+            AND id_lugar = ANY($2::text[]) 
+            AND status = 'pendente' 
+            AND data_reserva <= NOW() - INTERVAL '15 minutes'
+            RETURNING id_lugar
+        `;
+
+        const limparPendentesResult = await conexao.query(
+            limparPendentesQuery, 
+            [sessao_id, lugarIds]
+        );
+
+        if (limparPendentesResult.rows.length > 0) {
+            console.log('Reservas pendentes expiradas removidas:', 
+                limparPendentesResult.rows.map(r => r.id_lugar)
+            );
+        }
+
+        // 4. Verificar disponibilidade completa dos lugares
+        const disponibilidadeQuery = `
+            SELECT 
+                l.id_lugar,
+                l.codigo_lugar,
+                lo.status,
+                lo.data_reserva,
+                lo.id_compra,
+                CASE 
+                    WHEN lo.id_lugar IS NULL THEN 'disponivel'
+                    WHEN lo.status = 'pendente' AND lo.data_reserva <= NOW() - INTERVAL '15 minutes' THEN 'expirado'
+                    WHEN lo.status IN ('reservado', 'ocupado') THEN 'ocupado'
+                    WHEN lo.status = 'pendente' THEN 'pendente'
+                    ELSE 'indisponivel'
+                END as disponibilidade
+            FROM lugares l
+            LEFT JOIN lugares_ocupados lo 
+                ON l.id_lugar = lo.id_lugar 
+                AND lo.id_sessao = $1
+            WHERE l.id_lugar = ANY($2::text[])
+            AND l.estado_permanente = 'activo'
+            ORDER BY l.id_lugar
+        `;
+
+        const disponibilidadeResult = await conexao.query(
+            disponibilidadeQuery,
+            [sessao_id, lugarIds]
+        );
+
+        // Verificar lugares indisponíveis
+        const lugaresIndisponiveis = disponibilidadeResult.rows.filter(r => 
+            r.disponibilidade === 'ocupado' || r.disponibilidade === 'pendente'
+        );
+
+        if (lugaresIndisponiveis.length > 0) {
+            const detalhesIndisponiveis = lugaresIndisponiveis.map(r => ({
+                id_lugar: r.id_lugar,
+                codigo: r.codigo_lugar,
+                status: r.status,
+                motivo: r.disponibilidade === 'ocupado' ? 'Já ocupado' : 'Reserva pendente',
+                tempo_restante: r.data_reserva ? 
+                    Math.max(0, Math.floor((15 * 60 * 1000 - (Date.now() - new Date(r.data_reserva).getTime())) / 1000)) 
+                    : null
+            }));
+
+            console.log('Erro: Lugares indisponíveis', {
+                lugaresIndisponiveis: detalhesIndisponiveis,
+                sessao_id
+            });
+
+            await conexao.query('ROLLBACK');
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Alguns lugares estão indisponíveis para esta sessão",
+                lugares_indisponiveis: detalhesIndisponiveis,
+                total_indisponiveis: lugaresIndisponiveis.length
+            });
+        }
+
+        // 5. Calcular valor total
+        const valorTotal = preco * lugares.length;
+
+        // 6. Gerar número de factura
         const dataAtual = new Date();
+        const ano = dataAtual.getFullYear();
+        const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
+        const dia = String(dataAtual.getDate()).padStart(2, '0');
+        const sequencial = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        const numeroFactura = `FACT-${ano}${mes}${dia}-${sequencial}`;
 
-        // Iniciar transação
-        await conexao.query('BEGIN');
+        // 7. Gerar QR Code no formato correto
+        // Primeiro, criar os dados do QR Code
+        const qrData = JSON.stringify({
+            id_compra,
+            id_cliente,
+            sessao_id,
+            lugares: lugarIds,
+            data: dataAtual.toISOString(),
+            valor_total: valorTotal,
+            numero_factura: numeroFactura
+        });
 
-        try {
-            // 1. Inserir na tabela compras
-            const insertCompraQuery = `
-                INSERT INTO compras (
-                    id_compra, 
-                    id_cliente, 
-                    valor_total, 
-                    forma_pagamento, 
-                    estado_pagamento, 
-                    numero_factura,
-                    data_compra
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-            `;
+        // Converter para base64 (simulado - em produção use uma biblioteca real de QR Code)
+        const qrCodeBase64 = Buffer.from(qrData).toString('base64');
+        
+        // Formato final: data:image/png;base64,{codigo}
+        // NOTA: Em produção, você deve usar uma biblioteca como 'qrcode' para gerar a imagem PNG
+        // Exemplo com a biblioteca qrcode:
+        // const QRCode = require('qrcode');
+        // const qrCodeImage = await QRCode.toBuffer(qrData);
+        // const qrCodeBase64 = qrCodeImage.toString('base64');
+        
+        const qrCode = `data:image/png;base64,${qrCodeBase64}`;
 
-            await conexao.query(insertCompraQuery, [
+        // 8. Inserir compra - CORRIGIDO: adicionando id_sessao
+        const insertCompraQuery = `
+            INSERT INTO compras (
                 id_compra,
                 id_cliente,
-                valorTotal,
+                id_sessao,  -- ADICIONADO
+                data_compra,
+                valor_total,
                 forma_pagamento,
-                'aprovado',
-                numeroFactura,
-                dataAtual
-            ]);
+                estado_pagamento,
+                numero_factura,
+                qr_code
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id_compra, id_cliente, id_sessao, data_compra, valor_total, 
+                      forma_pagamento, estado_pagamento, numero_factura, qr_code
+        `;
 
-            // 2. Inserir bilhetes e associar lugares
-            const bilhetesCriados = [];
-            const todosLugaresParaAtualizar = [];
-            
-            for (const bilhete of bilhetes) {
-                const id_bilhete = gerarId();
-                
-                const insertBilheteQuery = `
-                    INSERT INTO bilhetes (
-                        id_bilhete,
-                        id_compra,
-                        id_sessao,
-                        preco_pago,
-                        tipo_bilhete,
-                        estado_uso
-                    ) VALUES ($1, $2, $3, $4, $5, $6)
-                `;
+        const compraResult = await conexao.query(insertCompraQuery, [
+            id_compra,
+            id_cliente,
+            sessao_id,  // ADICIONADO
+            dataAtual,
+            valorTotal,
+            forma_pagamento,
+            'aprovado',
+            numeroFactura,
+            qrCode
+        ]);
 
-                await conexao.query(insertBilheteQuery, [
-                    id_bilhete,
-                    id_compra,
-                    bilhete.id_sessao,
-                    bilhete.preco_pago,
-                    bilhete.tipo_bilhete,
-                    'activo'
-                ]);
+        // 9. Inserir lugares ocupados com data de reserva
+        const insertLugaresOcupadosQuery = `
+            INSERT INTO lugares_ocupados (
+                id_lo,
+                id_lugar, 
+                id_sala, 
+                id_compra, 
+                id_sessao, 
+                status,
+                data_reserva
+            ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            RETURNING id_lo, id_lugar, id_sala, id_compra, id_sessao, status, data_reserva
+        `;
 
-                // 3. Associar lugares ao bilhete
-                for (const id_lugar of bilhete.id_lugares) {
-                    const insertBilheteLugarQuery = `
-                        INSERT INTO bilhetes_lugares (
-                            id_bilhete,
-                            id_lugar
-                        ) VALUES ($1, $2)
-                    `;
-
-                    await conexao.query(insertBilheteLugarQuery, [id_bilhete, id_lugar]);
-                    
-                    // Guardar lugares para atualizar estado_compra
-                    todosLugaresParaAtualizar.push(id_lugar);
-                }
-
-                bilhetesCriados.push({
-                    id_bilhete,
-                    tipo_bilhete: bilhete.tipo_bilhete,
-                    preco_pago: bilhete.preco_pago,
-                    lugares: bilhete.id_lugares
-                });
-            }
-
-            // 4. Atualizar o estado_compra dos lugares para 'ocupado'
-            if (todosLugaresParaAtualizar.length > 0) {
-                const updateLugaresQuery = `
-                    UPDATE lugares 
-                    SET estado_compra = 'ocupado'
-                    WHERE id_lugar = ANY($1)
-                    RETURNING id_lugar, codigo_lugar, estado_compra
-                `;
-                
-                const lugaresAtualizados = await conexao.query(updateLugaresQuery, [todosLugaresParaAtualizar]);
-                
-                console.log(`Lugares atualizados para ocupado: ${lugaresAtualizados.rows.length}`);
-            }
-
-            // Commit da transação
-            await conexao.query('COMMIT');
-
-            // Retornar sucesso
-            res.status(201).json({
-                sucesso: true,
-                mensagem: "Compra realizada com sucesso",
-                dados: {
-                    id_compra,
-                    numero_factura,
-                    valor_total: valorTotal,
-                    data_compra: dataAtual,
-                    forma_pagamento,
-                    bilhetes: bilhetesCriados,
-                    lugares_atualizados: todosLugaresParaAtualizar.length
-                }
-            });
-
-        } catch (error) {
-            // Rollback em caso de erro
-            await conexao.query('ROLLBACK');
-            
-            console.error('Erro ao criar compra:', error);
-            
-            // Verificar se é erro de chave duplicada (numero_factura)
-            if (error.code === '23505' || error.constraint === 'compras_numero_factura_key') {
-                return res.status(409).json({
-                    sucesso: false,
-                    mensagem: "Erro ao gerar número da fatura. Tente novamente."
-                });
-            }
-            
-            res.status(500).json({
-                sucesso: false,
-                mensagem: "Erro ao processar compra",
-                erro: error.message
-            });
-        }
+        const lugaresOcupadosInseridos = [];
         
+        for (const lugar of lugares) {
+            const id_lo = uuidv4();
+            const result = await conexao.query(insertLugaresOcupadosQuery, [
+                id_lo,
+                lugar.id_lugar,
+                id_sala,
+                id_compra,
+                sessao_id,
+                'ocupado'
+            ]);
+            lugaresOcupadosInseridos.push(result.rows[0]);
+        }
+
+        // 10. Commit da transação
+        await conexao.query('COMMIT');
+
+        // 11. Buscar detalhes completos para resposta
+        const detalhesCompraQuery = `
+            SELECT 
+                c.*,
+                s.data_hora_inicio,
+                s.data_hora_fim,
+                f.titulo as filme_titulo,
+                json_agg(
+                    json_build_object(
+                        'id_lugar', lo.id_lugar,
+                        'codigo_lugar', l.codigo_lugar,
+                        'status', lo.status,
+                        'data_reserva', lo.data_reserva
+                    ) ORDER BY l.id_lugar
+                ) as lugares
+            FROM compras c
+            JOIN sessoes s ON s.id_sessao = c.id_sessao
+            JOIN filmes f ON f.id_filme = s.id_filme
+            JOIN salas sa ON sa.id_sala = s.id_sala
+            JOIN lugares_ocupados lo ON lo.id_compra = c.id_compra
+            JOIN lugares l ON l.id_lugar = lo.id_lugar
+            WHERE c.id_compra = $1
+            GROUP BY c.id_compra, s.data_hora_inicio, s.data_hora_fim, 
+                     f.titulo
+        `;
+
+        const detalhesCompra = await conexao.query(detalhesCompraQuery, [id_compra]);
+
+        // 12. Retornar resposta completa
+        res.status(201).json({
+            sucesso: true,
+            mensagem: "Compra realizada com sucesso",
+            compra: {
+                ...compraResult.rows[0],
+                sessao: {
+                    id_sessao: sessao_id,
+                    data_hora_inicio: sessao.data_hora_inicio,
+                    data_hora_fim: sessao.data_hora_fim
+                },
+                detalhes: detalhesCompra.rows[0] || null,
+                lugares_ocupados: lugaresOcupadosInseridos,
+                total_lugares: lugares.length,
+                valor_unitario: preco,
+                tempo_reserva: 15, // minutos
+                tempo_expiracao: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+            }
+        });
+
     } catch (err) {
-        console.error('Erro na validação:', err);
-        res.status(500).json({
+        await conexao.query('ROLLBACK');
+        
+        // Tratamento específico para diferentes tipos de erro
+        let mensagemErro = "Erro ao processar compra";
+        let statusCode = 500;
+        
+        if (err.code === '23505') { // Unique violation
+            mensagemErro = "Conflito: Este lugar já está reservado";
+            statusCode = 409;
+        } else if (err.code === '23503') { // Foreign key violation
+            mensagemErro = "Dados inválidos: Verifique os IDs fornecidos";
+            statusCode = 400;
+        } else if (err.code === '40P01') { // Deadlock
+            mensagemErro = "Sistema ocupado. Tente novamente em alguns segundos";
+            statusCode = 503;
+        } else if (err.message && err.message.includes('timeout')) {
+            mensagemErro = "Tempo limite excedido. Tente novamente";
+            statusCode = 408;
+        }
+
+        console.error('Erro detalhado ao processar compra:', {
+            message: err.message,
+            code: err.code,
+            constraint: err.constraint,
+            detail: err.detail,
+            where: err.where,
+            table: err.table,
+            routine: err.routine,
+            stack: err.stack,
+            body: req.body,
+            timestamp: new Date().toISOString()
+        });
+
+        res.status(statusCode).json({
             sucesso: false,
-            mensagem: "Erro ao validar compra",
-            erro: err.message
+            mensagem: mensagemErro,
+            erro: process.env.NODE_ENV === 'development' ? err.message : undefined,
+            codigo_erro: err.code || undefined
         });
     }
 });
+
+
+
 
 module.exports = router;
