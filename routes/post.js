@@ -1053,7 +1053,7 @@ router.post('/sessoes', async (req, res) => {
  *       - Lugares não podem estar ocupados (status 'reservado' ou 'ocupado')
  *       - Mínimo de 1 lugar por compra
  *       - Gera número de factura automático
- *       - Gera QR Code para identificação da compra
+ *       - Gera QR Code com o número da factura
  *     tags: [Compras]
  *     requestBody:
  *       required: true
@@ -1135,117 +1135,19 @@ router.post('/sessoes', async (req, res) => {
  *                       example: "pendente"
  *                     numero_factura:
  *                       type: string
- *                       example: "FACT-20260619-0001"
+ *                       example: "FACT-20260605-1780675024383"
  *                     qr_code:
  *                       type: string
- *                       example: "eyJpZF9jb21wcmEiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDEifQ=="
- *                     lugares_ocupados:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id_lo:
- *                             type: string
- *                             example: "1"
- *                           id_lugar:
- *                             type: string
- *                             example: "1"
- *                           id_sala:
- *                             type: string
- *                             example: "1"
- *                           id_compra:
- *                             type: string
- *                             format: uuid
- *                             example: "550e8400-e29b-41d4-a716-446655440001"
- *                           id_sessao:
- *                             type: string
- *                             format: uuid
- *                             example: "dcad0787-7de1-483e-b64b-aea3b3a87256"
- *                           status:
- *                             type: string
- *                             enum: [reservado, ocupado, cancelado]
- *                             example: "reservado"
+ *                       example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
  *       400:
  *         description: Dados inválidos na requisição
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sucesso:
- *                   type: boolean
- *                   example: false
- *                 mensagem:
- *                   type: string
- *                   example: "Preencha todos os campos obrigatórios e selecione pelo menos um lugar"
- *                 erro:
- *                   type: string
- *                   example: "Detalhes do erro"
  *       404:
  *         description: Sessão ou lugares não encontrados
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sucesso:
- *                   type: boolean
- *                   example: false
- *                 mensagem:
- *                   type: string
- *                   example: "Sessão não encontrada ou já foi cancelada"
- *                 lugares_nao_encontrados:
- *                   type: array
- *                   items:
- *                     type: string
- *                   example: ["5", "6"]
  *       409:
  *         description: Conflito - lugares já ocupados ou sessão indisponível
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sucesso:
- *                   type: boolean
- *                   example: false
- *                 mensagem:
- *                   type: string
- *                   example: "Os lugares 1, 3 já estão ocupados para esta sessão"
- *                 lugares_ocupados:
- *                   type: array
- *                   items:
- *                     type: string
- *                   example: ["1", "3"]
- *                 detalhes:
- *                   type: object
- *                   properties:
- *                     inicio_sessao:
- *                       type: string
- *                       format: date-time
- *                       example: "2026-06-19T15:00:00.000Z"
- *                     agora:
- *                       type: string
- *                       format: date-time
- *                       example: "2026-06-19T15:30:00.000Z"
  *       500:
  *         description: Erro interno do servidor
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sucesso:
- *                   type: boolean
- *                   example: false
- *                 mensagem:
- *                   type: string
- *                   example: "Erro ao processar compra"
- *                 erro:
- *                   type: string
- *                   example: "Database connection error"
  */
-
 router.post('/compras', async (req, res) => {
     const {
         id_cliente,
@@ -1439,44 +1341,45 @@ router.post('/compras', async (req, res) => {
         // 5. Calcular valor total
         const valorTotal = preco * lugares.length;
 
-        // 6. Gerar número de factura
+        // 6. Gerar número de factura no formato FACT-YYYYMMDD-TIMESTAMP
         const dataAtual = new Date();
         const ano = dataAtual.getFullYear();
         const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
         const dia = String(dataAtual.getDate()).padStart(2, '0');
-        const sequencial = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-        const numeroFactura = `FACT-${ano}${mes}${dia}-${sequencial}`;
+        const timestamp = Date.now(); // Timestamp em milissegundos
+        const numeroFactura = `FACT-${ano}${mes}${dia}-${timestamp}`;
 
-        // 7. Gerar QR Code no formato correto
-        // Primeiro, criar os dados do QR Code
-        const qrData = JSON.stringify({
-            id_compra,
-            id_cliente,
-            sessao_id,
-            lugares: lugarIds,
-            data: dataAtual.toISOString(),
-            valor_total: valorTotal,
-            numero_factura: numeroFactura
-        });
+        // 7. Gerar QR Code com o número da factura
+        // O QR Code vai armazenar apenas o número da factura
+        // Quando escaneado, vai mostrar: "FACT-20260620-1742073511437"
+        let qrCodeBase64 = '';
+        try {
+            // Gerar QR Code como imagem PNG em Base64
+            const qrCodeBuffer = await QRCode.toBuffer(numeroFactura, {
+                type: 'png',
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            });
+            qrCodeBase64 = qrCodeBuffer.toString('base64');
+        } catch (qrError) {
+            console.error('Erro ao gerar QR Code:', qrError);
+            // Fallback: armazenar o número da factura em texto simples
+            qrCodeBase64 = Buffer.from(numeroFactura).toString('base64');
+        }
 
-        // Converter para base64 (simulado - em produção use uma biblioteca real de QR Code)
-        const qrCodeBase64 = Buffer.from(qrData).toString('base64');
-        
         // Formato final: data:image/png;base64,{codigo}
-        // NOTA: Em produção, você deve usar uma biblioteca como 'qrcode' para gerar a imagem PNG
-        // Exemplo com a biblioteca qrcode:
-        // const QRCode = require('qrcode');
-        // const qrCodeImage = await QRCode.toBuffer(qrData);
-        // const qrCodeBase64 = qrCodeImage.toString('base64');
-        
         const qrCode = `data:image/png;base64,${qrCodeBase64}`;
 
-        // 8. Inserir compra - CORRIGIDO: adicionando id_sessao
+        // 8. Inserir compra
         const insertCompraQuery = `
             INSERT INTO compras (
                 id_compra,
                 id_cliente,
-                id_sessao,  -- ADICIONADO
+                id_sessao,
                 data_compra,
                 valor_total,
                 forma_pagamento,
@@ -1491,7 +1394,7 @@ router.post('/compras', async (req, res) => {
         const compraResult = await conexao.query(insertCompraQuery, [
             id_compra,
             id_cliente,
-            sessao_id,  // ADICIONADO
+            sessao_id,
             dataAtual,
             valorTotal,
             forma_pagamento,
@@ -2184,6 +2087,363 @@ router.post('/filme', async (req, res) => {
         });
     }
 });
+
+/**
+ * @swagger
+ * /compras/estatisticas:
+ *   get:
+ *     summary: Obtém estatísticas de compras
+ *     description: Retorna o total de compras e valores com filtros diário, semanal, mensal e anual
+ *     tags: [Compras]
+ *     parameters:
+ *       - in: query
+ *         name: periodo
+ *         required: false
+ *         description: Período para filtrar (dia, semana, mes, ano)
+ *         schema:
+ *           type: string
+ *           enum: [dia, semana, mes, ano, todos]
+ *           default: todos
+ *       - in: query
+ *         name: data_referencia
+ *         required: false
+ *         description: Data de referência para o filtro (formato YYYY-MM-DD)
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2026-06-21"
+ *     responses:
+ *       200:
+ *         description: Estatísticas obtidas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 total_geral:
+ *                   type: object
+ *                   properties:
+ *                     compras:
+ *                       type: integer
+ *                       example: 150
+ *                     valor_total:
+ *                       type: number
+ *                       format: float
+ *                       example: 12500.50
+ *                 periodo:
+ *                   type: object
+ *                   properties:
+ *                     tipo:
+ *                       type: string
+ *                       example: "todos"
+ *                     data_referencia:
+ *                       type: string
+ *                       format: date
+ *                       example: "2026-06-21"
+ *                     total_compras:
+ *                       type: integer
+ *                       example: 150
+ *                     valor_total:
+ *                       type: number
+ *                       format: float
+ *                       example: 12500.50
+ *                     media_por_compra:
+ *                       type: number
+ *                       format: float
+ *                       example: 83.34
+ *                 por_forma_pagamento:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       forma_pagamento:
+ *                         type: string
+ *                         example: "multicaixa"
+ *                       total:
+ *                         type: integer
+ *                         example: 45
+ *                       valor_total:
+ *                         type: number
+ *                         format: float
+ *                         example: 3750.00
+ *                 por_estado:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       estado_pagamento:
+ *                         type: string
+ *                         example: "aprovado"
+ *                       total:
+ *                         type: integer
+ *                         example: 120
+ *                       valor_total:
+ *                         type: number
+ *                         format: float
+ *                         example: 10000.00
+ *                 por_dia:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       data:
+ *                         type: string
+ *                         format: date
+ *                         example: "2026-06-21"
+ *                       total_compras:
+ *                         type: integer
+ *                         example: 15
+ *                       valor_total:
+ *                         type: number
+ *                         format: float
+ *                         example: 1250.00
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao buscar estatísticas"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+router.get('/compras/estatisticas', async (req, res) => {
+    const { periodo = 'todos', data_referencia } = req.query;
+    
+    // Data de referência: hoje se não for informada
+    const dataRef = data_referencia ? new Date(data_referencia) : new Date();
+    const ano = dataRef.getFullYear();
+    const mes = String(dataRef.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataRef.getDate()).padStart(2, '0');
+    const dataStr = `${ano}-${mes}-${dia}`;
+
+    try {
+        // --- 1. QUERY BASE ---
+        let whereClause = '';
+        let params = [];
+
+        switch (periodo) {
+            case 'dia':
+                whereClause = `WHERE DATE(c.data_compra) = $1`;
+                params = [dataStr];
+                break;
+            case 'semana':
+                whereClause = `WHERE DATE(c.data_compra) >= DATE($1) - INTERVAL '6 days' AND DATE(c.data_compra) <= DATE($1)`;
+                params = [dataStr];
+                break;
+            case 'mes':
+                whereClause = `WHERE EXTRACT(YEAR FROM c.data_compra) = $1 AND EXTRACT(MONTH FROM c.data_compra) = $2`;
+                params = [ano, mes];
+                break;
+            case 'ano':
+                whereClause = `WHERE EXTRACT(YEAR FROM c.data_compra) = $1`;
+                params = [ano];
+                break;
+            case 'todos':
+            default:
+                whereClause = '';
+                params = [];
+                break;
+        }
+
+        // --- 2. ESTATÍSTICAS GERAIS ---
+        const estatisticasQuery = `
+            SELECT 
+                COUNT(*) as total_compras,
+                COALESCE(SUM(valor_total), 0) as valor_total,
+                COALESCE(AVG(valor_total), 0) as media_por_compra,
+                MIN(data_compra) as primeira_compra,
+                MAX(data_compra) as ultima_compra
+            FROM compras c
+            ${whereClause}
+        `;
+
+        const estatisticasResult = await conexao.query(estatisticasQuery, params);
+
+        // --- 3. TOTAL GERAL (sem filtros) ---
+        const totalGeralQuery = `
+            SELECT 
+                COUNT(*) as total_compras,
+                COALESCE(SUM(valor_total), 0) as valor_total
+            FROM compras
+        `;
+        const totalGeralResult = await conexao.query(totalGeralQuery);
+
+        // --- 4. POR FORMA DE PAGAMENTO ---
+        const porFormaPagamentoQuery = `
+            SELECT 
+                forma_pagamento,
+                COUNT(*) as total,
+                COALESCE(SUM(valor_total), 0) as valor_total
+            FROM compras c
+            ${whereClause}
+            GROUP BY forma_pagamento
+            ORDER BY total DESC
+        `;
+        const porFormaPagamentoResult = await conexao.query(porFormaPagamentoQuery, params);
+
+        // --- 5. POR ESTADO DE PAGAMENTO ---
+        const porEstadoQuery = `
+            SELECT 
+                estado_pagamento,
+                COUNT(*) as total,
+                COALESCE(SUM(valor_total), 0) as valor_total
+            FROM compras c
+            ${whereClause}
+            GROUP BY estado_pagamento
+            ORDER BY total DESC
+        `;
+        const porEstadoResult = await conexao.query(porEstadoQuery, params);
+
+        // --- 6. ÚLTIMAS COMPRAS (10) ---
+        const ultimasComprasQuery = `
+            SELECT 
+                id_compra,
+                id_cliente,
+                data_compra,
+                valor_total,
+                forma_pagamento,
+                estado_pagamento,
+                numero_factura
+            FROM compras c
+            ${whereClause}
+            ORDER BY data_compra DESC
+            LIMIT 10
+        `;
+        const ultimasComprasResult = await conexao.query(ultimasComprasQuery, params);
+
+        // --- 7. COMPRAS POR DIA (últimos 30 dias) ---
+        const porDiaQuery = `
+            SELECT 
+                DATE(data_compra) as data,
+                COUNT(*) as total_compras,
+                COALESCE(SUM(valor_total), 0) as valor_total
+            FROM compras c
+            WHERE data_compra >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(data_compra)
+            ORDER BY data DESC
+        `;
+        const porDiaResult = await conexao.query(porDiaQuery);
+
+        // --- 8. COMPRAS POR MÊS (últimos 12 meses) ---
+        const porMesQuery = `
+            SELECT 
+                TO_CHAR(data_compra, 'YYYY-MM') as mes,
+                COUNT(*) as total_compras,
+                COALESCE(SUM(valor_total), 0) as valor_total
+            FROM compras c
+            WHERE data_compra >= CURRENT_DATE - INTERVAL '12 months'
+            GROUP BY TO_CHAR(data_compra, 'YYYY-MM')
+            ORDER BY mes DESC
+        `;
+        const porMesResult = await conexao.query(porMesQuery);
+
+        // --- 9. RESPOSTA ---
+        const estatisticas = estatisticasResult.rows[0] || {
+            total_compras: 0,
+            valor_total: 0,
+            media_por_compra: 0
+        };
+
+        // Montar mensagem descritiva
+        let mensagemPeriodo = '';
+        switch (periodo) {
+            case 'dia':
+                mensagemPeriodo = `Dia ${dataStr}`;
+                break;
+            case 'semana':
+                const dataInicio = new Date(dataRef);
+                dataInicio.setDate(dataInicio.getDate() - 6);
+                const dataFim = dataRef;
+                mensagemPeriodo = `Semana de ${dataInicio.toISOString().split('T')[0]} a ${dataFim.toISOString().split('T')[0]}`;
+                break;
+            case 'mes':
+                mensagemPeriodo = `Mês ${mes}/${ano}`;
+                break;
+            case 'ano':
+                mensagemPeriodo = `Ano ${ano}`;
+                break;
+            case 'todos':
+            default:
+                mensagemPeriodo = 'Todos os períodos';
+                break;
+        }
+
+        res.status(200).json({
+            sucesso: true,
+            mensagem: `Estatísticas de compras - ${mensagemPeriodo}`,
+            total_geral: {
+                compras: parseInt(totalGeralResult.rows[0]?.total_compras || 0),
+                valor_total: parseFloat(totalGeralResult.rows[0]?.valor_total || 0)
+            },
+            periodo: {
+                tipo: periodo,
+                data_referencia: dataStr,
+                total_compras: parseInt(estatisticas.total_compras || 0),
+                valor_total: parseFloat(estatisticas.valor_total || 0),
+                media_por_compra: parseFloat(estatisticas.media_por_compra || 0),
+                primeira_compra: estatisticas.primeira_compra,
+                ultima_compra: estatisticas.ultima_compra
+            },
+            por_forma_pagamento: porFormaPagamentoResult.rows.map(row => ({
+                forma_pagamento: row.forma_pagamento,
+                total: parseInt(row.total),
+                valor_total: parseFloat(row.valor_total),
+                percentual: estatisticas.total_compras > 0 
+                    ? Math.round((row.total / estatisticas.total_compras) * 100) 
+                    : 0
+            })),
+            por_estado: porEstadoResult.rows.map(row => ({
+                estado_pagamento: row.estado_pagamento,
+                total: parseInt(row.total),
+                valor_total: parseFloat(row.valor_total),
+                percentual: estatisticas.total_compras > 0 
+                    ? Math.round((row.total / estatisticas.total_compras) * 100) 
+                    : 0
+            })),
+            ultimas_compras: ultimasComprasResult.rows.map(row => ({
+                id_compra: row.id_compra,
+                id_cliente: row.id_cliente,
+                data_compra: row.data_compra,
+                valor_total: parseFloat(row.valor_total),
+                forma_pagamento: row.forma_pagamento,
+                estado_pagamento: row.estado_pagamento,
+                numero_factura: row.numero_factura
+            })),
+            tendencia: {
+                por_dia: porDiaResult.rows.map(row => ({
+                    data: row.data,
+                    total_compras: parseInt(row.total_compras),
+                    valor_total: parseFloat(row.valor_total)
+                })),
+                por_mes: porMesResult.rows.map(row => ({
+                    mes: row.mes,
+                    total_compras: parseInt(row.total_compras),
+                    valor_total: parseFloat(row.valor_total)
+                }))
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro ao buscar estatísticas:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao buscar estatísticas",
+            erro: error.message
+        });
+    }
+});
+
 
 
 
