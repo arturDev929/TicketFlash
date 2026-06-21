@@ -341,6 +341,7 @@ router.get('/movies/:id_filme', (req, res) => {
 
 router.get('/sessoes', (req, res) => {    
     const query = `SELECT 
+                        f.id_filme,
                         f.titulo,
                         f.duracao_minutos,
                         f.ano_lancamento,
