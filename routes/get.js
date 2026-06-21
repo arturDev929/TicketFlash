@@ -423,44 +423,51 @@ router.get('/sessoes-completas/:id_filme', async (req, res) => {
         }
 
         const query = `
-                        SELECT 
-                            f.id_filme,
-                            f.titulo,
-                            s.id_sessao,
-                            s.tipo_sessao,
-                            s.preco,
-                            s.observacoes,
-                            s.data_hora_inicio,
-                            s.data_hora_fim,
-                            s.estado_sessao,
-                            sl.id_sala,
-                            sl.nome_sala,
-                            sl.capacidade_total,
-                            sl.tipo_sala,
-                            sl.estado_sala,
-                            sl.coluna,
-                            sl.fila,
-                            -- Lugares agrupados em JSON ordenado por codigo_lugar
-                            json_agg(
-                                json_build_object(
-                                    'id_lugar', l.id_lugar,
-                                    'codigo_lugar', l.codigo_lugar,
-                                    'estado_permanente', l.estado_permanente,
-                                    'estado_compra', l.estado_compra
-                                )
-                                ORDER BY l.codigo_lugar  -- Ordena pelo código do lugar
-                            ) as lugares
-                        FROM filmes f 
-                        INNER JOIN sessoes s ON f.id_filme = s.id_filme 
-                        INNER JOIN salas sl ON sl.id_sala = s.id_sala 
-                        INNER JOIN lugares l ON l.id_sala = sl.id_sala 
-                        WHERE f.id_filme = $1
-                        GROUP BY 
-                            f.id_filme, f.titulo,
-                            s.id_sessao, s.tipo_sessao, s.preco, s.observacoes, 
-                            s.data_hora_inicio, s.data_hora_fim, s.estado_sessao,
-                            sl.id_sala, sl.nome_sala, sl.capacidade_total, sl.tipo_sala, sl.estado_sala, sl.coluna, sl.fila
-                        ORDER BY s.data_hora_inicio`;
+    SELECT 
+        f.id_filme,
+        f.titulo,
+        s.id_sessao,
+        s.tipo_sessao,
+        s.preco,
+        s.observacoes,
+        s.data_hora_inicio,
+        s.data_hora_fim,
+        s.estado_sessao,
+        sl.id_sala,
+        sl.nome_sala,
+        sl.capacidade_total,
+        sl.tipo_sala,
+        sl.estado_sala,
+        sl.coluna,
+        sl.fila,
+        -- Lugares agrupados em JSON com informações de ocupação
+        json_agg(
+            json_build_object(
+                'id_lugar', l.id_lugar,
+                'codigo_lugar', l.codigo_lugar,
+                'estado_permanente', l.estado_permanente,
+                'status_ocupacao', COALESCE(lo.status, 'Livre'),
+                'id_ocupacao', lo.id_lo,
+                'data_ocupacao', lo.data_reserva
+            )
+            ORDER BY l.codigo_lugar
+        ) as lugares
+    FROM filmes f 
+    INNER JOIN sessoes s ON f.id_filme = s.id_filme 
+    INNER JOIN salas sl ON sl.id_sala = s.id_sala 
+    INNER JOIN lugares l ON l.id_sala = sl.id_sala 
+    LEFT JOIN lugares_ocupados lo ON lo.id_sala = l.id_sala 
+        AND lo.id_lugar = l.id_lugar
+        AND lo.id_sessao = s.id_sessao
+    WHERE f.id_filme = $1
+    GROUP BY 
+        f.id_filme, f.titulo,
+        s.id_sessao, s.tipo_sessao, s.preco, s.observacoes, 
+        s.data_hora_inicio, s.data_hora_fim, s.estado_sessao,
+        sl.id_sala, sl.nome_sala, sl.capacidade_total, sl.tipo_sala, 
+        sl.estado_sala, sl.coluna, sl.fila
+    ORDER BY s.data_hora_inicio
+`;
 
         const results = await conexao.query(query, [id_filme]);
 
@@ -498,7 +505,11 @@ router.get('/sessoes-completas/:id_filme', async (req, res) => {
                             filas: sessao.fila
                         }
                     },
-                    lugares: sessao.lugares
+                    lugares: sessao.lugares.map(lugar => ({
+                        ...lugar,
+                        // Garantir que o status de ocupação seja tratado
+                        status_ocupacao: lugar.status_ocupacao || 'Livre'
+                    }))
                 }))
         }));
 
@@ -809,5 +820,203 @@ router.get('/brevemente', async (req, res) => {
         res.json(results.rows);
     });
 });
+
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Lista todos os utilizadores com seus dados de funcionários
+ *     description: Retorna uma lista de todos os utilizadores com informações dos funcionários através de um INNER JOIN entre as tabelas utilizadores e funcionarios
+ *     tags: [Utilizadores]
+ *     responses:
+ *       200:
+ *         description: Lista de utilizadores retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id_utilizador:
+ *                     type: integer
+ *                     description: ID do utilizador
+ *                     example: 1
+ *                   nome:
+ *                     type: string
+ *                     description: Nome do utilizador
+ *                     example: "João Silva"
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                     description: Email do utilizador
+ *                     example: "joao.silva@empresa.com"
+ *                   telefone:
+ *                     type: string
+ *                     description: Número de telefone
+ *                     example: "+351 912345678"
+ *                   data_registo:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Data de registo do utilizador
+ *                     example: "2024-01-15T10:30:00Z"
+ *                   id_funcionario:
+ *                     type: integer
+ *                     description: ID do funcionário
+ *                     example: 1
+ *                   cargo:
+ *                     type: string
+ *                     description: Cargo do funcionário
+ *                     example: "Desenvolvedor"
+ *                   departamento:
+ *                     type: string
+ *                     description: Departamento do funcionário
+ *                     example: "TI"
+ *                   data_contratacao:
+ *                     type: string
+ *                     format: date
+ *                     description: Data de contratação do funcionário
+ *                     example: "2023-01-01"
+ *                   salario:
+ *                     type: number
+ *                     format: float
+ *                     description: Salário do funcionário
+ *                     example: 3500.00
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem do erro
+ *                   example: "Erro na consulta à base de dados"
+ */
+router.get('/users', async (req, res) => {
+    const query = `select * from utilizadores u inner join funcionarios f on u.id_utilizador = f.id_utilizador`;
+
+    conexao.query(query, (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                erro: err.message
+            });
+        }
+        res.json(results.rows);
+    });
+});
+
+/**
+ * @swagger
+ * /users/{id_utilizador}:
+ *   get:
+ *     summary: Obtém um utilizador específico com seus dados de funcionário
+ *     description: Retorna os dados de um utilizador e seu respectivo funcionário através de um INNER JOIN entre as tabelas utilizadores e funcionarios, filtrado pelo ID do utilizador
+ *     tags: [Utilizadores]
+ *     parameters:
+ *       - in: path
+ *         name: id_utilizador
+ *         required: true
+ *         description: ID do utilizador
+ *         schema:
+ *           type: string
+ *           example: "550e8400-e29b-41d4-a716-446655440000"
+ *     responses:
+ *       200:
+ *         description: Utilizador encontrado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id_utilizador:
+ *                   type: string
+ *                   description: ID do utilizador
+ *                   example: "550e8400-e29b-41d4-a716-446655440000"
+ *                 nome:
+ *                   type: string
+ *                   description: Nome do utilizador
+ *                   example: "João Silva"
+ *                 email:
+ *                   type: string
+ *                   format: email
+ *                   description: Email do utilizador
+ *                   example: "joao.silva@empresa.com"
+ *                 telefone:
+ *                   type: string
+ *                   description: Número de telefone
+ *                   example: "+351 912345678"
+ *                 data_registo:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Data de registo do utilizador
+ *                   example: "2024-01-15T10:30:00Z"
+ *                 id_funcionario:
+ *                   type: string
+ *                   description: ID do funcionário
+ *                   example: "660e8400-e29b-41d4-a716-446655440001"
+ *                 cargo:
+ *                   type: string
+ *                   description: Cargo do funcionário
+ *                   example: "Desenvolvedor"
+ *                 departamento:
+ *                   type: string
+ *                   description: Departamento do funcionário
+ *                   example: "TI"
+ *                 data_contratacao:
+ *                   type: string
+ *                   format: date
+ *                   description: Data de contratação do funcionário
+ *                   example: "2023-01-01"
+ *                 salario:
+ *                   type: number
+ *                   format: float
+ *                   description: Salário do funcionário
+ *                   example: 3500.00
+ *       404:
+ *         description: Utilizador não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mensagem:
+ *                   type: string
+ *                   description: Mensagem de erro
+ *                   example: "Utilizador não encontrado"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 erro:
+ *                   type: string
+ *                   description: Mensagem do erro
+ *                   example: "Erro na consulta à base de dados"
+ */
+router.get('/users/:id_utilizador', async (req, res) => {
+    const id_utilizador = req.params.id_utilizador;
+    const query = `SELECT * FROM utilizadores u INNER JOIN funcionarios f ON u.id_utilizador = f.id_utilizador WHERE u.id_utilizador = $1`;
+
+    conexao.query(query, [id_utilizador], (err, results) => {
+        if (err) {
+            return res.status(500).json({
+                erro: err.message
+            });
+        }
+        
+        if (results.rows.length === 0) {
+            return res.status(404).json({
+                mensagem: "Utilizador não encontrado"
+            });
+        }
+        
+        res.json(results.rows[0]);
+    });
+});
+
 
 module.exports = router;
