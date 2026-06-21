@@ -96,6 +96,104 @@ function validarForcaSenha(senha) {
     };
 }
 
+function gerarSugestoes(capacidade, colunaAtual, filaAtual) {
+    const sugestoes = [];
+    
+    // Sugestão 1: Aumentar filas
+    const novasFilas = Math.ceil(capacidade / colunaAtual);
+    if (novasFilas * colunaAtual >= capacidade) {
+        sugestoes.push({
+            descricao: `Aumentar filas para ${novasFilas}`,
+            filas: novasFilas,
+            colunas: colunaAtual,
+            total: novasFilas * colunaAtual,
+            lugares_vazios: (novasFilas * colunaAtual) - capacidade
+        });
+    }
+    
+    // Sugestão 2: Aumentar colunas
+    const novasColunas = Math.ceil(capacidade / filaAtual);
+    if (filaAtual * novasColunas >= capacidade) {
+        sugestoes.push({
+            descricao: `Aumentar colunas para ${novasColunas}`,
+            filas: filaAtual,
+            colunas: novasColunas,
+            total: filaAtual * novasColunas,
+            lugares_vazios: (filaAtual * novasColunas) - capacidade
+        });
+    }
+    
+    // Sugestão 3: Distribuição uniforme
+    for (let f = 1; f <= Math.sqrt(capacidade); f++) {
+        if (capacidade % f === 0) {
+            const c = capacidade / f;
+            if (f <= 26 && c <= 26) {
+                sugestoes.push({
+                    descricao: `Distribuição uniforme ${f}×${c}`,
+                    filas: f,
+                    colunas: c,
+                    total: capacidade,
+                    lugares_vazios: 0,
+                    recomendado: true
+                });
+            }
+        }
+    }
+    
+    // Sugestão 4: Aproximação
+    for (let f = 1; f <= Math.sqrt(capacidade + 10); f++) {
+        const total = f * Math.ceil(capacidade / f);
+        if (total >= capacidade && total <= capacidade + 10) {
+            const c = Math.ceil(capacidade / f);
+            if (f <= 26 && c <= 26) {
+                sugestoes.push({
+                    descricao: `Aproximação ${f}×${c} = ${total}`,
+                    filas: f,
+                    colunas: c,
+                    total: total,
+                    lugares_vazios: total - capacidade
+                });
+            }
+        }
+    }
+    
+    // Ordenar: recomendados primeiro, depois menos lugares vazios
+    sugestoes.sort((a, b) => {
+        if (a.recomendado && !b.recomendado) return -1;
+        if (!a.recomendado && b.recomendado) return 1;
+        return a.lugares_vazios - b.lugares_vazios;
+    });
+    
+    return sugestoes.slice(0, 5);
+}
+
+function gerarMapaVisual(lugaresOrganizados, colunas) {
+    if (!lugaresOrganizados || lugaresOrganizados.length === 0) {
+        return '';
+    }
+    
+    let mapa = '';
+    const linhaSeparadora = '+---'.repeat(colunas) + '+';
+    
+    lugaresOrganizados.forEach(fila => {
+        mapa += linhaSeparadora + '\n';
+        mapa += `| ${fila.fila} `;
+        
+        fila.lugares.forEach(lugar => {
+            if (lugar.ativo) {
+                const codigo = lugar.codigo_lugar || '';
+                mapa += `| ${codigo.padEnd(2)}`;
+            } else {
+                mapa += `| ·· `;
+            }
+        });
+        mapa += '|\n';
+    });
+    mapa += linhaSeparadora;
+    
+    return mapa;
+}
+
 module.exports = {
     criptografarSenha,
     compararSenhas,
@@ -106,5 +204,7 @@ module.exports = {
     gerarCodigo,
     gerarSenhaTemporaria,
     validarForcaSenha,
-    gerarSenhaParaEmail
+    gerarSenhaParaEmail,
+    gerarSugestoes,
+    gerarMapaVisual
 };

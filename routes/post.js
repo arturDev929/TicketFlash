@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const conexao = require("../infra/conexao");
-const { criptografarSenha, gerarSenhaParaEmail, gerarCodigo,gerarId } = require("../utils/senha");
+const { criptografarSenha, gerarSenhaParaEmail, gerarCodigo,gerarId,gerarSugestoes,gerarMapaVisual } = require("../utils/senha");
 const { enviarSenhaAcesso } = require("../utils/email");
 const {verificarToken} = require("../middleware/authMiddleware");
 const { v4: uuidv4 } = require("uuid");
@@ -250,7 +250,7 @@ router.post("/register",verificarToken, async (req, res) => {
  * /salas:
  *   post:
  *     summary: Criar uma nova sala com lugares automáticos
- *     description: Registra uma nova sala e cria automaticamente os lugares baseados na capacidade total. Os lugares são criados com estado_permanente='activo' e estado_compra='livre' por padrão.
+ *     description: Registra uma nova sala e cria automaticamente os lugares baseados na configuracao de colunas e filas.
  *     tags: [Salas]
  *     requestBody:
  *       required: true
@@ -264,30 +264,30 @@ router.post("/register",verificarToken, async (req, res) => {
  *             properties:
  *               nome_sala:
  *                 type: string
- *                 description: Nome da sala (deve ser único por tipo de sala)
- *                 example: Sala VIP 1
+ *                 description: Nome da sala
+ *                 example: "Sala Pequena"
  *               capacidade_total:
  *                 type: integer
- *                 description: Capacidade total da sala (máximo 200 lugares)
- *                 example: 50
+ *                 description: Capacidade total da sala
+ *                 example: 11
  *               tipo_sala:
  *                 type: string
  *                 enum: [NORMAL, VIP, 3D, IMAX]
- *                 description: Tipo da sala (opcional - padrão NORMAL)
- *                 example: VIP
+ *                 description: Tipo da sala
+ *                 example: NORMAL
  *               estado_sala:
  *                 type: string
  *                 enum: [ATIVA, INATIVA, MANUTENCAO, operacional]
- *                 description: Estado da sala (opcional - padrão operacional)
+ *                 description: Estado da sala
  *                 example: operacional
  *               coluna:
  *                 type: integer
- *                 description: Número de colunas por fila (opcional - padrão 10, mínimo 1, máximo 20)
- *                 example: 10
+ *                 description: Numero de colunas por fila
+ *                 example: 4
  *               fila:
  *                 type: integer
- *                 description: Número de filas (opcional - calculado automaticamente se não informado)
- *                 example: 5
+ *                 description: Numero de filas
+ *                 example: 3
  *     responses:
  *       201:
  *         description: Sala criada com sucesso
@@ -301,7 +301,7 @@ router.post("/register",verificarToken, async (req, res) => {
  *                   example: true
  *                 mensagem:
  *                   type: string
- *                   example: Sala criada com 50 lugares com sucesso
+ *                   example: "Sala criada com 11 lugares com sucesso"
  *                 sala:
  *                   type: object
  *                   properties:
@@ -310,46 +310,52 @@ router.post("/register",verificarToken, async (req, res) => {
  *                       example: "550e8400-e29b-41d4-a716-446655440000"
  *                     nome_sala:
  *                       type: string
- *                       example: "Sala VIP 1"
+ *                       example: "Sala Pequena"
  *                     capacidade_total:
  *                       type: integer
- *                       example: 50
+ *                       example: 11
  *                     tipo_sala:
  *                       type: string
- *                       example: "VIP"
+ *                       example: "NORMAL"
  *                     estado_sala:
  *                       type: string
  *                       example: "operacional"
  *                     coluna:
  *                       type: integer
- *                       example: 10
+ *                       example: 4
  *                     fila:
  *                       type: integer
- *                       example: 5
+ *                       example: 3
  *                 lugares_criados:
  *                   type: integer
- *                   example: 50
+ *                   example: 11
  *                 configuracao:
  *                   type: object
  *                   properties:
  *                     colunas:
  *                       type: integer
- *                       example: 10
+ *                       example: 4
  *                     filas:
  *                       type: integer
- *                       example: 5
- *                     lugares_por_fila:
+ *                       example: 3
+ *                     total_posicoes:
  *                       type: integer
- *                       example: 10
- *                     total_lugares:
+ *                       example: 12
+ *                     lugares_ocupados:
  *                       type: integer
- *                       example: 50
+ *                       example: 11
+ *                     lugares_vazios:
+ *                       type: integer
+ *                       example: 1
  *                     capacidade_solicitada:
  *                       type: integer
- *                       example: 50
- *                     diferenca:
- *                       type: integer
- *                       example: 0
+ *                       example: 11
+ *                     porcentagem_ocupacao:
+ *                       type: string
+ *                       example: "92%"
+ *                 mapa_visual:
+ *                   type: string
+ *                   example: "+---+---+---+---+\n| A | A1 | A2 | A3 | A4 |\n+---+---+---+---+\n| B | B1 | B2 | B3 | B4 |\n+---+---+---+---+\n| C | C1 | C2 | C3 | ·· |\n+---+---+---+---+"
  *                 exemplos_lugares:
  *                   type: array
  *                   items:
@@ -372,11 +378,8 @@ router.post("/register",verificarToken, async (req, res) => {
  *                       estado_compra:
  *                         type: string
  *                         example: "livre"
- *                       codigo:
- *                         type: string
- *                         example: "ABC123"
  *       400:
- *         description: Dados inválidos
+ *         description: Dados invalidos
  *         content:
  *           application/json:
  *             schema:
@@ -388,8 +391,23 @@ router.post("/register",verificarToken, async (req, res) => {
  *                 mensagem:
  *                   type: string
  *                   example: "Capacidade total deve ser maior que 0"
+ *                 sugestoes:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       descricao:
+ *                         type: string
+ *                       filas:
+ *                         type: integer
+ *                       colunas:
+ *                         type: integer
+ *                       total:
+ *                         type: integer
+ *                       lugares_vazios:
+ *                         type: integer
  *       409:
- *         description: Conflito - Sala já existe
+ *         description: Conflito - Sala ja existe
  *         content:
  *           application/json:
  *             schema:
@@ -400,7 +418,7 @@ router.post("/register",verificarToken, async (req, res) => {
  *                   example: false
  *                 mensagem:
  *                   type: string
- *                   example: "Já existe uma sala com o nome \"Sala VIP 1\" e tipo \"VIP\""
+ *                   example: "Ja existe uma sala com o nome Sala Pequena e tipo NORMAL"
  *                 sala_existente:
  *                   type: object
  *                   properties:
@@ -426,17 +444,17 @@ router.post("/register",verificarToken, async (req, res) => {
  *                 erro:
  *                   type: string
  */
-
 router.post('/salas', async (req, res) => {
     const {
         nome_sala,
         capacidade_total,
-        tipo_sala,
-        estado_sala,
-        coluna,
+        tipo_sala = 'NORMAL',
+        estado_sala = 'operacional',
+        coluna = 10,
         fila
     } = req.body;
 
+    // --- VALIDAÇÕES BÁSICAS ---
     if (!nome_sala || nome_sala.trim() === '') {
         return res.status(400).json({
             sucesso: false,
@@ -465,30 +483,33 @@ router.post('/salas', async (req, res) => {
         });
     }
 
-    // Calcular número de filas
-    let total_filas;
-    const lugares_por_fila = coluna;
-    let capacidade_calculada;
+    // --- CALCULAR CONFIGURAÇÃO ---
+    const lugaresPorFila = coluna;
+    let totalFilas;
+    let totalPosicoes;
 
     if (fila && fila > 0) {
-        total_filas = fila;
-        capacidade_calculada = total_filas * lugares_por_fila;
+        totalFilas = fila;
+        totalPosicoes = totalFilas * lugaresPorFila;
         
-        if (capacidade_total > capacidade_calculada) {
+        if (capacidade_total > totalPosicoes) {
+            const sugestoes = gerarSugestoes(capacidade_total, coluna, fila);
+            
             return res.status(400).json({
                 sucesso: false,
-                mensagem: `Capacidade total (${capacidade_total}) excede a capacidade máxima com ${total_filas} filas e ${lugares_por_fila} colunas (${capacidade_calculada} lugares)`
+                mensagem: `Capacidade total (${capacidade_total}) excede o total de posições (${totalPosicoes}) com ${totalFilas} filas e ${lugaresPorFila} colunas`,
+                sugestoes: sugestoes
             });
         }
     } else {
-        total_filas = Math.ceil(capacidade_total / lugares_por_fila);
-        capacidade_calculada = total_filas * lugares_por_fila;
+        totalFilas = Math.ceil(capacidade_total / lugaresPorFila);
+        totalPosicoes = totalFilas * lugaresPorFila;
     }
 
     const id_sala = uuidv4();
 
     try {
-        // Verificar se já existe uma sala com o mesmo nome e tipo
+        // --- VERIFICAR SE SALA JÁ EXISTE ---
         const verificarSalaQuery = `
             SELECT id_sala, nome_sala, tipo_sala 
             FROM salas 
@@ -509,54 +530,52 @@ router.post('/salas', async (req, res) => {
             });
         }
 
-        // Iniciar transação
+        // --- INICIAR TRANSAÇÃO ---
         await conexao.query('BEGIN');
 
-        // Inserir sala
+        // --- INSERIR SALA ---
         const insertSalaQuery = `
             INSERT INTO salas (id_sala, nome_sala, capacidade_total, tipo_sala, estado_sala, coluna, fila)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
         `;
 
-        await conexao.query(insertSalaQuery, [
+        const salaResult = await conexao.query(insertSalaQuery, [
             id_sala,
             nome_sala.trim(),
             capacidade_total,
             tipo_sala,
             estado_sala,
-            lugares_por_fila,
-            total_filas
+            lugaresPorFila,
+            totalFilas
         ]);
 
-        // Gerar lugares
+        // --- GERAR LUGARES ---
         const fileiras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
         let lugaresInseridos = 0;
         const lugaresGerados = [];
-        
-        for (let filaIndex = 0; filaIndex < total_filas; filaIndex++) {
+        const lugaresOrganizados = [];
+
+        for (let filaIndex = 0; filaIndex < totalFilas && lugaresInseridos < capacidade_total; filaIndex++) {
             const letraFileira = fileiras[filaIndex % fileiras.length];
-            
-            let lugares_na_fila;
-            if (fila && fila > 0) {
-                // Modo manual: todas as filas têm o mesmo número de lugares
-                lugares_na_fila = lugares_por_fila;
-            } else {
-                // Modo automático: última fila pode ter menos lugares
-                const lugaresRestantes = capacidade_total - lugaresInseridos;
-                lugares_na_fila = Math.min(lugares_por_fila, lugaresRestantes);
-            }
-            
-            for (let numero = 1; numero <= lugares_na_fila; numero++) {
+            const linha = [];
+            let linhaTemAtivos = false;
+
+            const lugaresRestantes = capacidade_total - lugaresInseridos;
+            const lugaresNaFila = Math.min(lugaresPorFila, lugaresRestantes);
+
+            for (let numero = 1; numero <= lugaresNaFila; numero++) {
                 const codigo_lugar = `${letraFileira}${numero}`;
                 const id_lugar = uuidv4();
                 const codigo_unico = gerarCodigo();
                 
                 const insertLugarQuery = `
-                    INSERT INTO lugares (id_lugar, id_sala, codigo_lugar, fileira, numero, estado_permanente, estado_compra, codigo)
-                    VALUES ($1, $2, $3, $4, $5, 'activo', 'livre', $6)
+                    INSERT INTO lugares (id_lugar, id_sala, codigo_lugar, fileira, numero, estado_permanente, codigo)
+                    VALUES ($1, $2, $3, $4, $5, 'activo', $6)
+                    RETURNING *
                 `;
                 
-                await conexao.query(insertLugarQuery, [
+                const lugarResult = await conexao.query(insertLugarQuery, [
                     id_lugar,
                     id_sala,
                     codigo_lugar,
@@ -565,21 +584,71 @@ router.post('/salas', async (req, res) => {
                     codigo_unico
                 ]);
                 
-                lugaresGerados.push({
-                    id_lugar,
-                    codigo_lugar,
-                    fileira: letraFileira,
-                    numero,
-                    estado_permanente: 'activo',
-                    estado_compra: 'livre',
-                    codigo: codigo_unico
-                });
-                
+                const lugarObj = {
+                    id_lugar: lugarResult.rows[0].id_lugar,
+                    codigo_lugar: lugarResult.rows[0].codigo_lugar,
+                    fileira: lugarResult.rows[0].fileira,
+                    numero: lugarResult.rows[0].numero,
+                    estado_permanente: lugarResult.rows[0].estado_permanente,
+                    estado_compra: lugarResult.rows[0].estado_compra,
+                    codigo: lugarResult.rows[0].codigo,
+                    ativo: true
+                };
+
+                lugaresGerados.push(lugarObj);
+                linha.push(lugarObj);
+                linhaTemAtivos = true;
                 lugaresInseridos++;
+            }
+
+            if (linhaTemAtivos) {
+                for (let c = linha.length; c < lugaresPorFila; c++) {
+                    const codigoLugar = `${letraFileira}${c + 1}`;
+                    linha.push({
+                        codigo_lugar: codigoLugar,
+                        fileira: letraFileira,
+                        numero: c + 1,
+                        ativo: false,
+                        id_lugar: null,
+                        estado_permanente: null,
+                        estado_compra: null
+                    });
+                }
+
+                lugaresOrganizados.push({
+                    fila: letraFileira,
+                    lugares: linha,
+                    total_ativos: linha.filter(l => l.ativo).length,
+                    total_vazios: linha.filter(l => !l.ativo).length
+                });
             }
         }
 
-        // Atualizar capacidade total real da sala se necessário
+        for (let f = lugaresOrganizados.length; f < totalFilas; f++) {
+            const letraFileira = fileiras[f % fileiras.length];
+            const linha = [];
+            
+            for (let c = 0; c < lugaresPorFila; c++) {
+                const codigoLugar = `${letraFileira}${c + 1}`;
+                linha.push({
+                    codigo_lugar: codigoLugar,
+                    fileira: letraFileira,
+                    numero: c + 1,
+                    ativo: false,
+                    id_lugar: null,
+                    estado_permanente: null,
+                    estado_compra: null
+                });
+            }
+
+            lugaresOrganizados.push({
+                fila: letraFileira,
+                lugares: linha,
+                total_ativos: 0,
+                total_vazios: lugaresPorFila
+            });
+        }
+
         if (lugaresInseridos !== capacidade_total) {
             const updateCapacidadeQuery = `
                 UPDATE salas 
@@ -589,10 +658,8 @@ router.post('/salas', async (req, res) => {
             await conexao.query(updateCapacidadeQuery, [lugaresInseridos, id_sala]);
         }
 
-        // Commit da transação
         await conexao.query('COMMIT');
 
-        // Buscar a sala criada para retornar
         const selectSalaQuery = `
             SELECT id_sala, nome_sala, capacidade_total, tipo_sala, estado_sala, coluna, fila 
             FROM salas 
@@ -600,26 +667,47 @@ router.post('/salas', async (req, res) => {
         `;
         const salaCriada = await conexao.query(selectSalaQuery, [id_sala]);
 
+        const mapaVisual = gerarMapaVisual(lugaresOrganizados, lugaresPorFila);
+
+        const lugaresVazios = totalPosicoes - lugaresInseridos;
+        const porcentagemOcupacao = Math.round((lugaresInseridos / totalPosicoes) * 100);
+
         res.status(201).json({
             sucesso: true,
             mensagem: `Sala criada com ${lugaresInseridos} lugares com sucesso`,
             sala: salaCriada.rows[0],
             lugares_criados: lugaresInseridos,
             configuracao: {
-                colunas: lugares_por_fila,
-                filas: total_filas,
-                lugares_por_fila: lugares_por_fila,
-                total_lugares: total_filas * lugares_por_fila,
+                colunas: lugaresPorFila,
+                filas: totalFilas,
+                total_posicoes: totalPosicoes,
+                lugares_ocupados: lugaresInseridos,
+                lugares_vazios: lugaresVazios,
                 capacidade_solicitada: capacidade_total,
-                diferenca: (total_filas * lugares_por_fila) - capacidade_total
+                porcentagem_ocupacao: `${porcentagemOcupacao}%`
             },
+            estatisticas: {
+                total_lugares: lugaresInseridos,
+                lugares_ativos: lugaresInseridos,
+                lugares_inativos: lugaresVazios,
+                filas_completas: Math.floor(lugaresInseridos / lugaresPorFila),
+                filas_parciais: lugaresInseridos % lugaresPorFila > 0 ? 1 : 0,
+                ultima_fila_lugares: lugaresInseridos % lugaresPorFila || lugaresPorFila,
+                lugares_por_fila: lugaresOrganizados.map(f => ({
+                    fila: f.fila,
+                    ativos: f.total_ativos,
+                    vazios: f.total_vazios
+                }))
+            },
+            lugares: lugaresOrganizados,
+            mapa_visual: mapaVisual,
             exemplos_lugares: lugaresGerados.slice(0, 5)
         });
 
     } catch (err) {
-        // Rollback em caso de erro
         await conexao.query('ROLLBACK');
         
+        console.error('Erro ao criar sala:', err);
         res.status(500).json({
             sucesso: false,
             mensagem: "Erro ao criar sala e lugares",
@@ -1535,6 +1623,567 @@ router.post('/compras', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /genero:
+ *   post:
+ *     summary: Criar um novo gênero
+ *     description: Registra um novo gênero para filmes
+ *     tags: [Gêneros]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome_genero
+ *             properties:
+ *               nome_genero:
+ *                 type: string
+ *                 description: Nome do gênero
+ *                 example: "Ação"
+ *               descricao:
+ *                 type: string
+ *                 description: Descrição do gênero
+ *                 example: "Filmes com cenas de ação intensas e perseguições"
+ *     responses:
+ *       201:
+ *         description: Gênero criado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Gênero criado com sucesso"
+ *                 genero:
+ *                   type: object
+ *                   properties:
+ *                     id_genero:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440001"
+ *                     nome_genero:
+ *                       type: string
+ *                       example: "Ação"
+ *                     descricao:
+ *                       type: string
+ *                       example: "Filmes com cenas de ação intensas e perseguições"
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Nome do gênero é obrigatório"
+ *       409:
+ *         description: Gênero já existe
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Já existe um gênero com o nome 'Ação'"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao criar gênero"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+router.post('/genero', async (req, res) => {
+    const id_genero = uuidv4();
+    const { nome_genero, descricao } = req.body;
+
+    // --- VALIDAÇÕES ---
+    if (!nome_genero || nome_genero.trim() === '') {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Nome do gênero é obrigatório"
+        });
+    }
+
+    try {
+        // --- VERIFICAR SE GÊNERO JÁ EXISTE ---
+        const verificarGenero = `
+            SELECT id_genero FROM generos WHERE nome_genero = $1
+        `;
+        const generoExistente = await conexao.query(verificarGenero, [nome_genero.trim()]);
+
+        if (generoExistente.rows.length > 0) {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: `Já existe um gênero com o nome '${nome_genero.trim()}'`
+            });
+        }
+
+        // --- INSERIR GÊNERO ---
+        const sql = `
+            INSERT INTO generos (id_genero, nome_genero, descricao)
+            VALUES ($1, $2, $3)
+            RETURNING *
+        `;
+
+        const values = [
+            id_genero,
+            nome_genero.trim(),
+            descricao || null
+        ];
+
+        const result = await conexao.query(sql, values);
+
+        res.status(201).json({
+            sucesso: true,
+            mensagem: "Gênero criado com sucesso",
+            genero: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro ao criar gênero:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao criar gênero",
+            erro: error.message
+        });
+    }
+});
+
+/**
+ * @swagger
+ * /filme:
+ *   post:
+ *     summary: Criar um novo filme com gêneros
+ *     description: Registra um novo filme e associa a um ou mais gêneros
+ *     tags: [Filmes]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - titulo
+ *               - duracao_minuto
+ *               - ano_lancamento
+ *               - id_funcionario
+ *               - id_genero
+ *             properties:
+ *               titulo:
+ *                 type: string
+ *                 description: Título do filme
+ *                 example: "Avatar 3"
+ *               sinopse:
+ *                 type: string
+ *                 description: Sinopse do filme
+ *                 example: "Uma jornada épica em Pandora..."
+ *               duracao_minuto:
+ *                 type: integer
+ *                 description: Duração em minutos
+ *                 example: 180
+ *               ano_lancamento:
+ *                 type: integer
+ *                 description: Ano de lançamento
+ *                 example: 2025
+ *               classificacao_etaria:
+ *                 type: string
+ *                 enum: [L, 6, 12, 14, 16, 18]
+ *                 description: Classificação indicativa (L = Livre)
+ *                 example: "12"
+ *               nota_media:
+ *                 type: number
+ *                 format: float
+ *                 description: Nota média do filme
+ *                 example: 8.5
+ *               cartaz_url:
+ *                 type: string
+ *                 description: URL do cartaz do filme
+ *                 example: "https://example.com/poster.jpg"
+ *               trailer_url:
+ *                 type: string
+ *                 description: URL do trailer do filme
+ *                 example: "https://youtube.com/watch?v=123"
+ *               id_funcionario:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID do funcionário que cadastrou
+ *                 example: "550e8400-e29b-41d4-a716-446655440000"
+ *               pais_origem:
+ *                 type: string
+ *                 description: País de origem do filme
+ *                 example: "EUA"
+ *               idioma_original:
+ *                 type: string
+ *                 description: Idioma original do filme
+ *                 example: "Inglês"
+ *               estado_exibicao:
+ *                 type: string
+ *                 enum: [disponivel, indisponivel, brevemente]
+ *                 description: Estado de exibição do filme
+ *                 example: "disponivel"
+ *               destaque:
+ *                 type: boolean
+ *                 description: Indica se o filme está em destaque
+ *                 example: true
+ *               id_genero:
+ *                 type: array
+ *                 description: Lista de IDs dos gêneros
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 example: ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440002"]
+ *     responses:
+ *       201:
+ *         description: Filme criado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Filme criado com 2 gêneros com sucesso"
+ *                 filme:
+ *                   type: object
+ *                   properties:
+ *                     id_filme:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     titulo:
+ *                       type: string
+ *                       example: "Avatar 3"
+ *                     sinopse:
+ *                       type: string
+ *                       example: "Uma jornada épica em Pandora..."
+ *                     duracao_minuto:
+ *                       type: integer
+ *                       example: 180
+ *                     ano_lancamento:
+ *                       type: integer
+ *                       example: 2025
+ *                     classificacao_etaria:
+ *                       type: string
+ *                       example: "12"
+ *                     nota_media:
+ *                       type: number
+ *                       example: 8.5
+ *                     cartaz_url:
+ *                       type: string
+ *                       example: "https://example.com/poster.jpg"
+ *                     trailer_url:
+ *                       type: string
+ *                       example: "https://youtube.com/watch?v=123"
+ *                     pais_origem:
+ *                       type: string
+ *                       example: "EUA"
+ *                     idioma_original:
+ *                       type: string
+ *                       example: "Inglês"
+ *                     estado_exibicao:
+ *                       type: string
+ *                       example: "disponivel"
+ *                     destaque:
+ *                       type: boolean
+ *                       example: true
+ *                     cadastrado_por:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     data_cadastro:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-15T10:30:00Z"
+ *                 generos_associados:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id_genero:
+ *                         type: string
+ *                         format: uuid
+ *                         example: "550e8400-e29b-41d4-a716-446655440001"
+ *                       nome_genero:
+ *                         type: string
+ *                         example: "Ação"
+ *                 generos_nao_encontrados:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     format: uuid
+ *                     example: ["550e8400-e29b-41d4-a716-446655440099"]
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Classificação etária inválida. Valores permitidos: L, 6, 12, 14, 16, 18"
+ *       404:
+ *         description: Funcionário ou gênero não encontrado
+ *       409:
+ *         description: Filme já existe
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/filme', async (req, res) => {
+    const id_filme = uuidv4();
+    const data_cadastro = new Date();
+    const {
+        titulo,
+        sinopse,
+        duracao_minuto,
+        ano_lancamento,
+        classificacao_etaria,
+        nota_media,
+        cartaz_url,
+        trailer_url,
+        id_funcionario,
+        pais_origem,
+        idioma_original,
+        estado_exibicao,
+        destaque,
+        id_genero
+    } = req.body;
+
+    // --- VALIDAÇÕES ---
+    if (!titulo || titulo.trim() === '') {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Título é obrigatório"
+        });
+    }
+
+    if (!duracao_minuto || duracao_minuto <= 0) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Duração deve ser maior que 0"
+        });
+    }
+
+    if (!ano_lancamento || ano_lancamento < 1900 || ano_lancamento > new Date().getFullYear() + 5) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Ano de lançamento inválido"
+        });
+    }
+
+    if (!id_funcionario) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "ID do funcionário é obrigatório"
+        });
+    }
+
+    if (!id_genero || !Array.isArray(id_genero) || id_genero.length === 0) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Pelo menos um gênero é obrigatório"
+        });
+    }
+
+    // --- VALIDAR CLASSIFICAÇÃO ETÁRIA ---
+    // Valores permitidos: 'L', '6', '12', '14', '16', '18'
+    const CLASSIFICACOES_VALIDAS = ['L', '6', '12', '14', '16', '18'];
+    
+    // Se não for enviado, usar 'L' (Livre) como padrão
+    let classificacaoFinal = classificacao_etaria || 'L';
+    
+    // Converter para string e remover espaços
+    classificacaoFinal = String(classificacaoFinal).trim();
+    
+    // Validar se é um valor permitido
+    if (!CLASSIFICACOES_VALIDAS.includes(classificacaoFinal)) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: `Classificação etária inválida. Valores permitidos: ${CLASSIFICACOES_VALIDAS.join(', ')}`,
+            valor_enviado: classificacao_etaria
+        });
+    }
+
+    try {
+        await conexao.query('BEGIN');
+
+        // --- VERIFICAR FUNCIONÁRIO ---
+        const verificarFuncionario = `
+            SELECT id_funcionario FROM funcionarios WHERE id_funcionario = $1
+        `;
+        const funcionario = await conexao.query(verificarFuncionario, [id_funcionario]);
+
+        if (funcionario.rows.length === 0) {
+            await conexao.query('ROLLBACK');
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Funcionário não encontrado"
+            });
+        }
+
+        // --- VERIFICAR SE FILME JÁ EXISTE ---
+        const verificarFilme = `
+            SELECT id_filme FROM filmes WHERE titulo = $1 AND ano_lancamento = $2
+        `;
+        const filmeExistente = await conexao.query(verificarFilme, [titulo.trim(), ano_lancamento]);
+
+        if (filmeExistente.rows.length > 0) {
+            await conexao.query('ROLLBACK');
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: `Já existe um filme com o título "${titulo}" e ano "${ano_lancamento}"`
+            });
+        }
+
+        // --- VERIFICAR GÊNEROS ---
+        const generosValidos = [];
+        const generosInvalidos = [];
+
+        for (const generoId of id_genero) {
+            const verificarGenero = `
+                SELECT id_genero, nome_genero FROM generos WHERE id_genero = $1
+            `;
+            const genero = await conexao.query(verificarGenero, [generoId]);
+            
+            if (genero.rows.length > 0) {
+                generosValidos.push({
+                    id_genero: genero.rows[0].id_genero,
+                    nome_genero: genero.rows[0].nome_genero
+                });
+            } else {
+                generosInvalidos.push(generoId);
+            }
+        }
+
+        if (generosValidos.length === 0) {
+            await conexao.query('ROLLBACK');
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Nenhum gênero válido foi encontrado",
+                generos_invalidos: generosInvalidos
+            });
+        }
+
+        // --- INSERIR FILME ---
+        const sql = `
+            INSERT INTO filmes (
+                id_filme,
+                titulo,
+                sinopse,
+                duracao_minutos,
+                ano_lancamento,
+                classificacao_etaria,
+                nota_media,
+                cartaz_url,
+                trailer_url,
+                cadastrado_por,
+                pais_origem,
+                idioma_original,
+                estado_exibicao,
+                destaque,
+                data_cadastro
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+            )
+            RETURNING *
+        `;
+
+        const values = [
+            id_filme,
+            titulo.trim(),
+            sinopse || null,
+            duracao_minuto,
+            ano_lancamento,
+            classificacaoFinal, // 'L', '6', '12', '14', '16' ou '18'
+            nota_media || 0,
+            cartaz_url || null,
+            trailer_url || null,
+            id_funcionario,
+            pais_origem || null,
+            idioma_original || null,
+            estado_exibicao || 'disponivel',
+            destaque || false,
+            data_cadastro
+        ];
+
+        const result = await conexao.query(sql, values);
+
+        // --- ASSOCIAR GÊNEROS ---
+        const generosAssociados = [];
+        for (const genero of generosValidos) {
+            const sqlGenero = `
+                INSERT INTO filmes_generos (id_filme, id_genero)
+                VALUES ($1, $2)
+                RETURNING *
+            `;
+            await conexao.query(sqlGenero, [id_filme, genero.id_genero]);
+            generosAssociados.push(genero);
+        }
+
+        await conexao.query('COMMIT');
+
+        // --- BUSCAR GÊNEROS DO FILME ---
+        const buscarGeneros = `
+            SELECT g.id_genero, g.nome_genero 
+            FROM generos g
+            INNER JOIN filmes_generos fg ON g.id_genero = fg.id_genero
+            WHERE fg.id_filme = $1
+            ORDER BY g.nome_genero
+        `;
+        const generosFilme = await conexao.query(buscarGeneros, [id_filme]);
+
+        res.status(201).json({
+            sucesso: true,
+            mensagem: `Filme criado com ${generosAssociados.length} gênero(s) com sucesso`,
+            filme: result.rows[0],
+            generos_associados: generosAssociados,
+            generos_nao_encontrados: generosInvalidos,
+            todos_generos_filme: generosFilme.rows
+        });
+
+    } catch (error) {
+        await conexao.query('ROLLBACK');
+        
+        console.error('Erro ao criar filme:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao criar filme",
+            erro: error.message,
+            detalhe: error.detail || null
+        });
+    }
+});
 
 
 
