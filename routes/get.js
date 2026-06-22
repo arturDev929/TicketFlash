@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const conexao = require('../infra/conexao');
 const {verificarToken} = require('../middleware/authMiddleware');
+const {gerarMapaVisualAssentos} =  require('../utils/senha');
 
 /**
  * @swagger
@@ -1017,5 +1018,312 @@ router.get('/users/:id_utilizador', async (req, res) => {
     });
 });
 
+/**
+ * @swagger
+ * /sala/{id}/assentos:
+ *   get:
+ *     summary: Busca todos os assentos de uma sala
+ *     description: Retorna todos os assentos de uma sala específica organizados por filas
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID da sala
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           example: "550e8400-e29b-41d4-a716-446655440000"
+ *     responses:
+ *       200:
+ *         description: Assentos encontrados com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 sala:
+ *                   type: object
+ *                   properties:
+ *                     id_sala:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     nome_sala:
+ *                       type: string
+ *                       example: "Sala Pequena"
+ *                     capacidade_total:
+ *                       type: integer
+ *                       example: 11
+ *                     tipo_sala:
+ *                       type: string
+ *                       example: "NORMAL"
+ *                     estado_sala:
+ *                       type: string
+ *                       example: "operacional"
+ *                     coluna:
+ *                       type: integer
+ *                       example: 4
+ *                     fila:
+ *                       type: integer
+ *                       example: 3
+ *                 total_assentos:
+ *                   type: integer
+ *                   example: 11
+ *                 configuracao:
+ *                   type: object
+ *                   properties:
+ *                     filas:
+ *                       type: integer
+ *                       example: 3
+ *                     colunas:
+ *                       type: integer
+ *                       example: 4
+ *                     total_posicoes:
+ *                       type: integer
+ *                       example: 12
+ *                     assentos_ocupados:
+ *                       type: integer
+ *                       example: 11
+ *                     assentos_vazios:
+ *                       type: integer
+ *                       example: 1
+ *                 assentos:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       fila:
+ *                         type: string
+ *                         example: "A"
+ *                       assentos:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id_lugar:
+ *                               type: string
+ *                               format: uuid
+ *                               example: "660e8400-e29b-41d4-a716-446655440001"
+ *                             codigo_lugar:
+ *                               type: string
+ *                               example: "A1"
+ *                             fileira:
+ *                               type: string
+ *                               example: "A"
+ *                             numero:
+ *                               type: integer
+ *                               example: 1
+ *                             estado_permanente:
+ *                               type: string
+ *                               enum: [activo, inactivo, manutencao]
+ *                               example: "activo"
+ *                             codigo:
+ *                               type: string
+ *                               example: "ABC123"
+ *                             ativo:
+ *                               type: boolean
+ *                               example: true
+ *                       total_ativos:
+ *                         type: integer
+ *                         example: 4
+ *                       total_inativos:
+ *                         type: integer
+ *                         example: 0
+ *                 mapa_visual:
+ *                   type: string
+ *                   example: "+---+---+---+---+\n| A | A1 | A2 | A3 | A4 |\n+---+---+---+---+\n| B | B1 | B2 | B3 | B4 |\n+---+---+---+---+\n| C | C1 | C2 | C3 | ·· |\n+---+---+---+---+"
+ *       404:
+ *         description: Sala não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Sala não encontrada"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao buscar assentos"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+router.get('/sala/:id/assentos', async (req, res) => {
+    const id = req.params.id;
+    
+    try {
+        // --- BUSCAR DADOS DA SALA ---
+        const sqlSala = `
+            SELECT id_sala, nome_sala, capacidade_total, tipo_sala, estado_sala, coluna, fila
+            FROM salas 
+            WHERE id_sala = $1
+        `;
+        const salaResult = await conexao.query(sqlSala, [id]);
+        
+        if (salaResult.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Sala não encontrada"
+            });
+        }
+        
+        const sala = salaResult.rows[0];
+        
+        // --- BUSCAR ASSENTOS DA SALA ---
+        const sqlAssentos = `
+            SELECT id_lugar, codigo_lugar, fileira, numero, estado_permanente, codigo
+            FROM lugares 
+            WHERE id_sala = $1
+            ORDER BY fileira, numero
+        `;
+        const assentosResult = await conexao.query(sqlAssentos, [id]);
+        const assentos = assentosResult.rows;
+        
+        // --- ORGANIZAR ASSENTOS POR FILA ---
+        const assentosPorFila = {};
+        const fileiras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        const colunas = sala.coluna || 0;
+        const filas = sala.fila || 0;
+        
+        // Inicializar estrutura para todas as filas
+        for (let i = 0; i < filas; i++) {
+            const letra = fileiras[i % fileiras.length];
+            assentosPorFila[letra] = {
+                fila: letra,
+                assentos: [],
+                total_ativos: 0,
+                total_inativos: 0
+            };
+        }
+        
+        // Preencher com os assentos existentes
+        assentos.forEach(assento => {
+            const fila = assento.fileira;
+            if (!assentosPorFila[fila]) {
+                assentosPorFila[fila] = {
+                    fila: fila,
+                    assentos: [],
+                    total_ativos: 0,
+                    total_inativos: 0
+                };
+            }
+            
+            const ativo = assento.estado_permanente === 'activo';
+            assentosPorFila[fila].assentos.push({
+                id_lugar: assento.id_lugar,
+                codigo_lugar: assento.codigo_lugar,
+                fileira: assento.fileira,
+                numero: assento.numero,
+                estado_permanente: assento.estado_permanente,
+                codigo: assento.codigo,
+                ativo: ativo
+            });
+            
+            if (ativo) {
+                assentosPorFila[fila].total_ativos++;
+            } else {
+                assentosPorFila[fila].total_inativos++;
+            }
+        });
+        
+        // --- COMPLETAR FILAS COM ASSENTOS VAZIOS (VISUAL) ---
+        for (let i = 0; i < filas; i++) {
+            const letra = fileiras[i % fileiras.length];
+            const filaAtual = assentosPorFila[letra];
+            
+            if (filaAtual) {
+                // Ordenar assentos por número
+                filaAtual.assentos.sort((a, b) => a.numero - b.numero);
+                
+                // Verificar se faltam assentos na fila
+                const assentosExistentes = filaAtual.assentos.length;
+                if (assentosExistentes < colunas) {
+                    // Adicionar assentos vazios (placeholder)
+                    for (let c = assentosExistentes + 1; c <= colunas; c++) {
+                        filaAtual.assentos.push({
+                            id_lugar: null,
+                            codigo_lugar: `${letra}${c}`,
+                            fileira: letra,
+                            numero: c,
+                            estado_permanente: null,
+                            codigo: null,
+                            ativo: false,
+                            vazio: true
+                        });
+                    }
+                }
+            }
+        }
+        
+        // --- CONVERTER PARA ARRAY ORDENADO ---
+        const assentosOrganizados = Object.values(assentosPorFila)
+            .filter(f => f.assentos.length > 0)
+            .sort((a, b) => a.fila.localeCompare(b.fila));
+        
+        // --- CALCULAR ESTATÍSTICAS ---
+        const totalAssentos = assentos.length;
+        const totalAtivos = assentos.filter(a => a.estado_permanente === 'activo').length;
+        const totalInativos = totalAssentos - totalAtivos;
+        const totalPosicoes = filas * colunas;
+        const assentosVazios = totalPosicoes - totalAssentos;
+        
+        // --- GERAR MAPA VISUAL ---
+        const mapaVisual = gerarMapaVisualAssentos(assentosOrganizados, colunas);
+        
+        res.status(200).json({
+            sucesso: true,
+            sala: {
+                id_sala: sala.id_sala,
+                nome_sala: sala.nome_sala,
+                capacidade_total: sala.capacidade_total,
+                tipo_sala: sala.tipo_sala,
+                estado_sala: sala.estado_sala,
+                coluna: sala.coluna,
+                fila: sala.fila
+            },
+            total_assentos: totalAssentos,
+            configuracao: {
+                filas: filas,
+                colunas: colunas,
+                total_posicoes: totalPosicoes,
+                assentos_ocupados: totalAssentos,
+                assentos_vazios: assentosVazios,
+                assentos_ativos: totalAtivos,
+                assentos_inativos: totalInativos,
+                porcentagem_ocupacao: totalPosicoes > 0 
+                    ? Math.round((totalAssentos / totalPosicoes) * 100) 
+                    : 0
+            },
+            assentos: assentosOrganizados,
+            mapa_visual: mapaVisual
+        });
+        
+    } catch (error) {
+        console.error('Erro ao buscar assentos:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao buscar assentos",
+            erro: error.message
+        });
+    }
+});
 
 module.exports = router;
