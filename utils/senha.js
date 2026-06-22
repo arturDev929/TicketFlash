@@ -194,6 +194,38 @@ function gerarMapaVisual(lugaresOrganizados, colunas) {
     return mapa;
 }
 
+function gerarMapaVisualAssentos(assentosOrganizados, colunas) {
+    if (!assentosOrganizados || assentosOrganizados.length === 0 || colunas === 0) {
+        return '';
+    }
+    
+    let mapa = '';
+    const linhaSeparadora = '+---'.repeat(colunas) + '+';
+    
+    assentosOrganizados.forEach(fila => {
+        mapa += linhaSeparadora + '\n';
+        mapa += `| ${fila.fila} `;
+        
+        // Ordenar assentos por número
+        const assentosOrdenados = [...fila.assentos].sort((a, b) => a.numero - b.numero);
+        
+        assentosOrdenados.forEach(assento => {
+            if (assento.ativo && !assento.vazio) {
+                const codigo = assento.codigo_lugar || '';
+                mapa += `| ${codigo.padEnd(2)}`;
+            } else if (assento.vazio) {
+                mapa += `| ·· `;
+            } else {
+                mapa += `| ✗ `;
+            }
+        });
+        mapa += '|\n';
+    });
+    mapa += linhaSeparadora;
+    
+    return mapa;
+}
+
 module.exports = {
     criptografarSenha,
     compararSenhas,
@@ -206,5 +238,6 @@ module.exports = {
     validarForcaSenha,
     gerarSenhaParaEmail,
     gerarSugestoes,
-    gerarMapaVisual
+    gerarMapaVisual,
+    gerarMapaVisualAssentos
 };
