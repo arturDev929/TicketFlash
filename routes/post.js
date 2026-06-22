@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const conexao = require("../infra/conexao");
 const { criptografarSenha, gerarSenhaParaEmail, gerarCodigo,gerarId,gerarSugestoes,gerarMapaVisual } = require("../utils/senha");
-const { enviarSenhaAcesso } = require("../utils/email");
+const { enviarSenhaAcesso, enviarBoasVindas } = require("../utils/email");
 const {verificarToken} = require("../middleware/authMiddleware");
 const { v4: uuidv4 } = require("uuid");
 const QRCode = require('qrcode');
@@ -2090,31 +2090,50 @@ router.post('/filme', async (req, res) => {
 
 /**
  * @swagger
- * /compras/estatisticas:
- *   get:
- *     summary: Obtém estatísticas de compras
- *     description: Retorna o total de compras e valores com filtros diário, semanal, mensal e anual
- *     tags: [Compras]
- *     parameters:
- *       - in: query
- *         name: periodo
- *         required: false
- *         description: Período para filtrar (dia, semana, mes, ano)
- *         schema:
- *           type: string
- *           enum: [dia, semana, mes, ano, todos]
- *           default: todos
- *       - in: query
- *         name: data_referencia
- *         required: false
- *         description: Data de referência para o filtro (formato YYYY-MM-DD)
- *         schema:
- *           type: string
- *           format: date
- *           example: "2026-06-21"
+ * /registerClient:
+ *   post:
+ *     summary: Registrar um novo cliente
+ *     description: Cria uma nova conta de cliente com validação de senha e envio de email de boas-vindas
+ *     tags: [Clientes]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome_completo
+ *               - email
+ *               - senha_hash
+ *               - confirmar_senha_hash
+ *               - telefone
+ *             properties:
+ *               nome_completo:
+ *                 type: string
+ *                 description: Nome completo do cliente
+ *                 example: "João Silva"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email do cliente
+ *                 example: "joao.silva@email.com"
+ *               senha_hash:
+ *                 type: string
+ *                 format: password
+ *                 description: Senha do cliente (mínimo 8 caracteres)
+ *                 example: "senha123"
+ *               confirmar_senha_hash:
+ *                 type: string
+ *                 format: password
+ *                 description: Confirmação da senha
+ *                 example: "senha123"
+ *               telefone:
+ *                 type: string
+ *                 description: Número de telefone
+ *                 example: "+351 912345678"
  *     responses:
- *       200:
- *         description: Estatísticas obtidas com sucesso
+ *       201:
+ *         description: Cliente registrado com sucesso
  *         content:
  *           application/json:
  *             schema:
@@ -2123,83 +2142,61 @@ router.post('/filme', async (req, res) => {
  *                 sucesso:
  *                   type: boolean
  *                   example: true
- *                 total_geral:
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Cliente registrado com sucesso"
+ *                 cliente:
  *                   type: object
  *                   properties:
- *                     compras:
- *                       type: integer
- *                       example: 150
- *                     valor_total:
- *                       type: number
- *                       format: float
- *                       example: 12500.50
- *                 periodo:
- *                   type: object
- *                   properties:
- *                     tipo:
+ *                     id_utilizador:
  *                       type: string
- *                       example: "todos"
- *                     data_referencia:
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     nome_completo:
  *                       type: string
- *                       format: date
- *                       example: "2026-06-21"
- *                     total_compras:
- *                       type: integer
- *                       example: 150
- *                     valor_total:
- *                       type: number
- *                       format: float
- *                       example: 12500.50
- *                     media_por_compra:
- *                       type: number
- *                       format: float
- *                       example: 83.34
- *                 por_forma_pagamento:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       forma_pagamento:
- *                         type: string
- *                         example: "multicaixa"
- *                       total:
- *                         type: integer
- *                         example: 45
- *                       valor_total:
- *                         type: number
- *                         format: float
- *                         example: 3750.00
- *                 por_estado:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       estado_pagamento:
- *                         type: string
- *                         example: "aprovado"
- *                       total:
- *                         type: integer
- *                         example: 120
- *                       valor_total:
- *                         type: number
- *                         format: float
- *                         example: 10000.00
- *                 por_dia:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       data:
- *                         type: string
- *                         format: date
- *                         example: "2026-06-21"
- *                       total_compras:
- *                         type: integer
- *                         example: 15
- *                       valor_total:
- *                         type: number
- *                         format: float
- *                         example: 1250.00
+ *                       example: "João Silva"
+ *                     email:
+ *                       type: string
+ *                       example: "joao.silva@email.com"
+ *                     telefone:
+ *                       type: string
+ *                       example: "+351 912345678"
+ *                     tipo_utilizador:
+ *                       type: string
+ *                       example: "cliente"
+ *                     estado_conta:
+ *                       type: string
+ *                       example: "activo"
+ *                     data_cadastro:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-22T10:30:00.000Z"
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "As senhas não coincidem"
+ *       409:
+ *         description: Email já registrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Este email já está registrado"
  *       500:
  *         description: Erro interno do servidor
  *         content:
@@ -2212,239 +2209,137 @@ router.post('/filme', async (req, res) => {
  *                   example: false
  *                 mensagem:
  *                   type: string
- *                   example: "Erro ao buscar estatísticas"
+ *                   example: "Erro ao registrar cliente"
  *                 erro:
  *                   type: string
  *                   example: "Database error"
  */
-router.get('/compras/estatisticas', async (req, res) => {
-    const { periodo = 'todos', data_referencia } = req.query;
+router.post('/registerClient', async (req, res) => {
+    const id_utilizador = uuidv4();
+    const tipo_utilizador = 'cliente';
+    const data_cadastro = new Date();
+    const estado_conta = 'activo';
     
-    // Data de referência: hoje se não for informada
-    const dataRef = data_referencia ? new Date(data_referencia) : new Date();
-    const ano = dataRef.getFullYear();
-    const mes = String(dataRef.getMonth() + 1).padStart(2, '0');
-    const dia = String(dataRef.getDate()).padStart(2, '0');
-    const dataStr = `${ano}-${mes}-${dia}`;
+    const {
+        nome_completo,
+        email,
+        senha_hash,
+        confirmar_senha_hash,
+        telefone
+    } = req.body;
+
+    // --- VALIDAÇÕES ---
+    if (!nome_completo || nome_completo.trim() === '') {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Nome completo é obrigatório"
+        });
+    }
+
+    if (!email || email.trim() === '') {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Email é obrigatório"
+        });
+    }
+
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Email inválido"
+        });
+    }
+
+    if (!senha_hash || senha_hash.length < 8) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "A senha deve ter pelo menos 8 caracteres"
+        });
+    }
+
+    if (senha_hash !== confirmar_senha_hash) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "As senhas não coincidem"
+        });
+    }
+
+    if (!telefone || telefone.trim() === '') {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Telefone é obrigatório"
+        });
+    }
 
     try {
-        // --- 1. QUERY BASE ---
-        let whereClause = '';
-        let params = [];
+        // --- VERIFICAR SE EMAIL JÁ ESTÁ CADASTRADO ---
+        const verificarEmailQuery = `
+            SELECT id_utilizador, email FROM utilizadores WHERE email = $1
+        `;
+        const emailExistente = await conexao.query(verificarEmailQuery, [email.trim()]);
 
-        switch (periodo) {
-            case 'dia':
-                whereClause = `WHERE DATE(c.data_compra) = $1`;
-                params = [dataStr];
-                break;
-            case 'semana':
-                whereClause = `WHERE DATE(c.data_compra) >= DATE($1) - INTERVAL '6 days' AND DATE(c.data_compra) <= DATE($1)`;
-                params = [dataStr];
-                break;
-            case 'mes':
-                whereClause = `WHERE EXTRACT(YEAR FROM c.data_compra) = $1 AND EXTRACT(MONTH FROM c.data_compra) = $2`;
-                params = [ano, mes];
-                break;
-            case 'ano':
-                whereClause = `WHERE EXTRACT(YEAR FROM c.data_compra) = $1`;
-                params = [ano];
-                break;
-            case 'todos':
-            default:
-                whereClause = '';
-                params = [];
-                break;
+        if (emailExistente.rows.length > 0) {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Este email já está registrado",
+                email: email
+            });
         }
 
-        // --- 2. ESTATÍSTICAS GERAIS ---
-        const estatisticasQuery = `
-            SELECT 
-                COUNT(*) as total_compras,
-                COALESCE(SUM(valor_total), 0) as valor_total,
-                COALESCE(AVG(valor_total), 0) as media_por_compra,
-                MIN(data_compra) as primeira_compra,
-                MAX(data_compra) as ultima_compra
-            FROM compras c
-            ${whereClause}
+        // --- INSERIR CLIENTE ---
+        const sql = `
+            INSERT INTO utilizadores (
+                id_utilizador,
+                nome_completo,
+                email,
+                senha_hash,
+                telefone,
+                tipo_utilizador,
+                data_cadastro,
+                estado_conta
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id_utilizador, nome_completo, email, telefone, tipo_utilizador, estado_conta, data_cadastro
         `;
 
-        const estatisticasResult = await conexao.query(estatisticasQuery, params);
+        const values = [
+            id_utilizador,
+            nome_completo.trim(),
+            email.trim(),
+            senha_hash, // Em produção, use bcrypt para hash
+            telefone.trim(),
+            tipo_utilizador,
+            data_cadastro,
+            estado_conta
+        ];
 
-        // --- 3. TOTAL GERAL (sem filtros) ---
-        const totalGeralQuery = `
-            SELECT 
-                COUNT(*) as total_compras,
-                COALESCE(SUM(valor_total), 0) as valor_total
-            FROM compras
-        `;
-        const totalGeralResult = await conexao.query(totalGeralQuery);
+        const result = await conexao.query(sql, values);
 
-        // --- 4. POR FORMA DE PAGAMENTO ---
-        const porFormaPagamentoQuery = `
-            SELECT 
-                forma_pagamento,
-                COUNT(*) as total,
-                COALESCE(SUM(valor_total), 0) as valor_total
-            FROM compras c
-            ${whereClause}
-            GROUP BY forma_pagamento
-            ORDER BY total DESC
-        `;
-        const porFormaPagamentoResult = await conexao.query(porFormaPagamentoQuery, params);
-
-        // --- 5. POR ESTADO DE PAGAMENTO ---
-        const porEstadoQuery = `
-            SELECT 
-                estado_pagamento,
-                COUNT(*) as total,
-                COALESCE(SUM(valor_total), 0) as valor_total
-            FROM compras c
-            ${whereClause}
-            GROUP BY estado_pagamento
-            ORDER BY total DESC
-        `;
-        const porEstadoResult = await conexao.query(porEstadoQuery, params);
-
-        // --- 6. ÚLTIMAS COMPRAS (10) ---
-        const ultimasComprasQuery = `
-            SELECT 
-                id_compra,
-                id_cliente,
-                data_compra,
-                valor_total,
-                forma_pagamento,
-                estado_pagamento,
-                numero_factura
-            FROM compras c
-            ${whereClause}
-            ORDER BY data_compra DESC
-            LIMIT 10
-        `;
-        const ultimasComprasResult = await conexao.query(ultimasComprasQuery, params);
-
-        // --- 7. COMPRAS POR DIA (últimos 30 dias) ---
-        const porDiaQuery = `
-            SELECT 
-                DATE(data_compra) as data,
-                COUNT(*) as total_compras,
-                COALESCE(SUM(valor_total), 0) as valor_total
-            FROM compras c
-            WHERE data_compra >= CURRENT_DATE - INTERVAL '30 days'
-            GROUP BY DATE(data_compra)
-            ORDER BY data DESC
-        `;
-        const porDiaResult = await conexao.query(porDiaQuery);
-
-        // --- 8. COMPRAS POR MÊS (últimos 12 meses) ---
-        const porMesQuery = `
-            SELECT 
-                TO_CHAR(data_compra, 'YYYY-MM') as mes,
-                COUNT(*) as total_compras,
-                COALESCE(SUM(valor_total), 0) as valor_total
-            FROM compras c
-            WHERE data_compra >= CURRENT_DATE - INTERVAL '12 months'
-            GROUP BY TO_CHAR(data_compra, 'YYYY-MM')
-            ORDER BY mes DESC
-        `;
-        const porMesResult = await conexao.query(porMesQuery);
-
-        // --- 9. RESPOSTA ---
-        const estatisticas = estatisticasResult.rows[0] || {
-            total_compras: 0,
-            valor_total: 0,
-            media_por_compra: 0
-        };
-
-        // Montar mensagem descritiva
-        let mensagemPeriodo = '';
-        switch (periodo) {
-            case 'dia':
-                mensagemPeriodo = `Dia ${dataStr}`;
-                break;
-            case 'semana':
-                const dataInicio = new Date(dataRef);
-                dataInicio.setDate(dataInicio.getDate() - 6);
-                const dataFim = dataRef;
-                mensagemPeriodo = `Semana de ${dataInicio.toISOString().split('T')[0]} a ${dataFim.toISOString().split('T')[0]}`;
-                break;
-            case 'mes':
-                mensagemPeriodo = `Mês ${mes}/${ano}`;
-                break;
-            case 'ano':
-                mensagemPeriodo = `Ano ${ano}`;
-                break;
-            case 'todos':
-            default:
-                mensagemPeriodo = 'Todos os períodos';
-                break;
+        // --- ENVIAR EMAIL DE BOAS-VINDAS ---
+        try {
+            await enviarBoasVindas(email, nome_completo);
+        } catch (emailError) {
+            console.error('Erro ao enviar email de boas-vindas:', emailError);
+            // Não interrompe o fluxo
         }
 
-        res.status(200).json({
+        res.status(201).json({
             sucesso: true,
-            mensagem: `Estatísticas de compras - ${mensagemPeriodo}`,
-            total_geral: {
-                compras: parseInt(totalGeralResult.rows[0]?.total_compras || 0),
-                valor_total: parseFloat(totalGeralResult.rows[0]?.valor_total || 0)
-            },
-            periodo: {
-                tipo: periodo,
-                data_referencia: dataStr,
-                total_compras: parseInt(estatisticas.total_compras || 0),
-                valor_total: parseFloat(estatisticas.valor_total || 0),
-                media_por_compra: parseFloat(estatisticas.media_por_compra || 0),
-                primeira_compra: estatisticas.primeira_compra,
-                ultima_compra: estatisticas.ultima_compra
-            },
-            por_forma_pagamento: porFormaPagamentoResult.rows.map(row => ({
-                forma_pagamento: row.forma_pagamento,
-                total: parseInt(row.total),
-                valor_total: parseFloat(row.valor_total),
-                percentual: estatisticas.total_compras > 0 
-                    ? Math.round((row.total / estatisticas.total_compras) * 100) 
-                    : 0
-            })),
-            por_estado: porEstadoResult.rows.map(row => ({
-                estado_pagamento: row.estado_pagamento,
-                total: parseInt(row.total),
-                valor_total: parseFloat(row.valor_total),
-                percentual: estatisticas.total_compras > 0 
-                    ? Math.round((row.total / estatisticas.total_compras) * 100) 
-                    : 0
-            })),
-            ultimas_compras: ultimasComprasResult.rows.map(row => ({
-                id_compra: row.id_compra,
-                id_cliente: row.id_cliente,
-                data_compra: row.data_compra,
-                valor_total: parseFloat(row.valor_total),
-                forma_pagamento: row.forma_pagamento,
-                estado_pagamento: row.estado_pagamento,
-                numero_factura: row.numero_factura
-            })),
-            tendencia: {
-                por_dia: porDiaResult.rows.map(row => ({
-                    data: row.data,
-                    total_compras: parseInt(row.total_compras),
-                    valor_total: parseFloat(row.valor_total)
-                })),
-                por_mes: porMesResult.rows.map(row => ({
-                    mes: row.mes,
-                    total_compras: parseInt(row.total_compras),
-                    valor_total: parseFloat(row.valor_total)
-                }))
-            }
+            mensagem: "Cliente registrado com sucesso",
+            cliente: result.rows[0],
+            email_enviado: true
         });
 
     } catch (error) {
-        console.error('Erro ao buscar estatísticas:', error);
+        console.error('Erro ao registrar cliente:', error);
         res.status(500).json({
             sucesso: false,
-            mensagem: "Erro ao buscar estatísticas",
+            mensagem: "Erro ao registrar cliente",
             erro: error.message
         });
     }
 });
-
-
 
 
 module.exports = router;
