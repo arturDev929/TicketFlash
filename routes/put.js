@@ -1817,5 +1817,115 @@ router.put('/sala/:idSala/assentos/:idLugar', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /client/{id}:
+ *   put:
+ *     summary: Atualizar dados do cliente
+ *     description: Atualiza o nome e telefone do cliente
+ *     tags: [Clientes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID do cliente
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           example: "550e8400-e29b-41d4-a716-446655440000"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome_completo:
+ *                 type: string
+ *                 description: Nome completo do cliente
+ *                 example: "João Silva Atualizado"
+ *               telefone:
+ *                 type: string
+ *                 description: Número de telefone
+ *                 example: "+351 912345679"
+ *     responses:
+ *       200:
+ *         description: Cliente atualizado com sucesso
+ *       400:
+ *         description: Dados inválidos
+ *       404:
+ *         description: Cliente não encontrado
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.put('/client/:id', async (req, res) => {
+    const id_utilizador = req.params.id;
+    const { nome_completo, telefone } = req.body;
+
+    // --- VALIDAÇÃO ---
+    if (!nome_completo && !telefone) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Pelo menos um campo deve ser informado para atualização"
+        });
+    }
+
+    try {
+        // --- VERIFICAR SE CLIENTE EXISTE ---
+        const verificarQuery = `
+            SELECT id_utilizador FROM utilizadores WHERE id_utilizador = $1
+        `;
+        const existe = await conexao.query(verificarQuery, [id_utilizador]);
+
+        if (existe.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Cliente não encontrado"
+            });
+        }
+
+        // --- SQL CORRETO ---
+        // Usando VÍRGULA (,) para separar os campos, não AND
+        const sql = `
+            UPDATE utilizadores 
+            SET nome_completo = $1, 
+                telefone = $2
+            WHERE id_utilizador = $3
+            RETURNING id_utilizador, nome_completo, email, telefone, tipo_utilizador, estado_conta, data_cadastro
+        `;
+
+        const values = [
+            nome_completo || null,
+            telefone || null,
+            id_utilizador
+        ];
+
+        const result = await conexao.query(sql, values);
+
+        res.status(200).json({
+            sucesso: true,
+            mensagem: "Dados do cliente atualizados com sucesso",
+            cliente: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro ao atualizar cliente:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao atualizar cliente",
+            erro: error.message
+        });
+    }
+});
+
+
+
+router.put('/clientSenha/:id', async (req,res)=>{
+
+});
+
+router.put('/clientRecuperarSenha', async (req,res)=>{
+    const email = req.body
+});
 
 module.exports = router;

@@ -1682,4 +1682,151 @@ router.get('/compras/estatisticas', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /client/{id}:
+ *   get:
+ *     summary: Buscar cliente por ID
+ *     description: Retorna os dados de um cliente específico pelo ID
+ *     tags: [Clientes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID do cliente (UUID)
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *           example: "550e8400-e29b-41d4-a716-446655440000"
+ *     responses:
+ *       200:
+ *         description: Cliente encontrado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 cliente:
+ *                   type: object
+ *                   properties:
+ *                     id_utilizador:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     nome_completo:
+ *                       type: string
+ *                       example: "João Silva"
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                       example: "joao.silva@email.com"
+ *                     telefone:
+ *                       type: string
+ *                       example: "+351 912345678"
+ *                     tipo_utilizador:
+ *                       type: string
+ *                       example: "cliente"
+ *                     estado_conta:
+ *                       type: string
+ *                       example: "activo"
+ *                     data_cadastro:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-22T10:30:00.000Z"
+ *       400:
+ *         description: ID inválido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "ID inválido"
+ *       404:
+ *         description: Cliente não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Cliente não encontrado"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao buscar cliente"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+router.get('/client/:id', async (req, res) => {
+    const id = req.params.id;
+
+    // --- VALIDAR SE O ID É UM UUID VÁLIDO ---
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!uuidRegex.test(id)) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "ID inválido. Deve ser um UUID válido."
+        });
+    }
+
+    try {
+        const sql = `
+            SELECT 
+                id_utilizador, 
+                nome_completo, 
+                email, 
+                telefone, 
+                tipo_utilizador, 
+                estado_conta, 
+                data_cadastro
+            FROM utilizadores 
+            WHERE id_utilizador = $1
+        `;
+        
+        const result = await conexao.query(sql, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Cliente não encontrado"
+            });
+        }
+
+        res.status(200).json({
+            sucesso: true,
+            cliente: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro ao buscar cliente:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao buscar cliente",
+            erro: error.message
+        });
+    }
+});
+
 module.exports = router;

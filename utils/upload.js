@@ -2,18 +2,28 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+// --- DIRETÓRIOS DE UPLOAD ---
 const UPLOAD_DIRS = {
     FILMES_CARTAZ: path.join(__dirname, "../uploads/filmes/cartazes"),
-    FILMES_TRAILER: path.join(__dirname, "../uploads/filmes/trailers")
+    FILMES_TRAILER: path.join(__dirname, "../uploads/filmes/trailers"),
+    CLIENTES: path.join(__dirname, "../uploads/clientes")
 };
 
+// --- FUNÇÃO PARA CRIAR PASTAS ---
 const criarPastaSeNaoExistir = (pasta) => {
     if (!fs.existsSync(pasta)) {
         fs.mkdirSync(pasta, { recursive: true });
     }
 };
 
-const storage = multer.diskStorage({
+// Criar todas as pastas necessárias
+Object.values(UPLOAD_DIRS).forEach(pasta => criarPastaSeNaoExistir(pasta));
+
+// ============================================================
+// CONFIGURAÇÃO PARA FILMES
+// ============================================================
+
+const storageFilmes = multer.diskStorage({
     destination: (req, file, cb) => {
         let pasta = UPLOAD_DIRS.FILMES_CARTAZ;
         
@@ -39,8 +49,7 @@ const storage = multer.diskStorage({
     }
 });
 
-
-const fileFilter = (req, file, cb) => {
+const fileFilterFilmes = (req, file, cb) => {
     if (file.fieldname === "cartaz") {
         const allowedImages = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
         if (allowedImages.includes(file.mimetype)) {
@@ -62,44 +71,89 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-
 const uploadFilmes = multer({
-    storage: storage,
+    storage: storageFilmes,
     limits: { 
-        fileSize: 100 * 1024 * 1024, 
+        fileSize: 100 * 1024 * 1024, // 100MB
         files: 2
     },
-    fileFilter: fileFilter
+    fileFilter: fileFilterFilmes
 });
-
 
 const uploadMidiaFilme = uploadFilmes.fields([
     { name: 'cartaz', maxCount: 1 },
     { name: 'trailer', maxCount: 1 }
 ]);
 
+// ============================================================
+// CONFIGURAÇÃO PARA CLIENTES
+// ============================================================
 
+const storageCliente = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const pasta = UPLOAD_DIRS.CLIENTES;
+        criarPastaSeNaoExistir(pasta);
+        cb(null, pasta);
+    },
+    filename: (req, file, cb) => {
+        const extensao = path.extname(file.originalname);
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 10000);
+        const nome = `cliente_${timestamp}_${random}${extensao}`;
+        cb(null, nome);
+    }
+});
+
+const fileFilterCliente = (req, file, cb) => {
+    const allowedImages = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+    if (allowedImages.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error("Formato inválido. Use JPEG, PNG, JPG ou WEBP"), false);
+    }
+};
+
+const uploadCliente = multer({
+    storage: storageCliente,
+    limits: { 
+        fileSize: 5 * 1024 * 1024 // 5MB
+    },
+    fileFilter: fileFilterCliente
+});
+
+const uploadClientImg = uploadCliente.single('foto');
+
+// ============================================================
+// FUNÇÕES PARA DELETAR ARQUIVOS
+// ============================================================
+
+// Deletar cartaz do filme
 const deletarCartazFilme = (nomeArquivo) => {
     if (nomeArquivo) {
         const caminho = path.join(UPLOAD_DIRS.FILMES_CARTAZ, nomeArquivo);
         if (fs.existsSync(caminho)) {
             fs.unlinkSync(caminho);
             console.log(`Cartaz deletado: ${nomeArquivo}`);
+            return true;
         }
     }
+    return false;
 };
 
+// Deletar trailer do filme
 const deletarTrailerFilme = (nomeArquivo) => {
     if (nomeArquivo) {
         const caminho = path.join(UPLOAD_DIRS.FILMES_TRAILER, nomeArquivo);
         if (fs.existsSync(caminho)) {
             fs.unlinkSync(caminho);
             console.log(`Trailer deletado: ${nomeArquivo}`);
+            return true;
         }
     }
+    return false;
 };
 
-
+// Deletar mídias do filme (cartaz e trailer)
 const deletarMidiasFilme = (cartazUrl, trailerUrl) => {
     if (cartazUrl) {
         const nomeCartaz = path.basename(cartazUrl);
@@ -112,11 +166,38 @@ const deletarMidiasFilme = (cartazUrl, trailerUrl) => {
     }
 };
 
+// Deletar foto do cliente
+const deletarFotoCliente = (fotoUrl) => {
+    if (fotoUrl) {
+        const nomeArquivo = path.basename(fotoUrl);
+        const caminho = path.join(UPLOAD_DIRS.CLIENTES, nomeArquivo);
+        if (fs.existsSync(caminho)) {
+            fs.unlinkSync(caminho);
+            console.log(`Foto do cliente deletada: ${nomeArquivo}`);
+            return true;
+        }
+    }
+    return false;
+};
+
+// ============================================================
+// EXPORTAR MÓDULOS
+// ============================================================
 
 module.exports = {
+    // Uploads
     uploadMidiaFilme,
+    uploadClientImg,
+    
+    // Deletar arquivos
     deletarCartazFilme,
     deletarTrailerFilme,
     deletarMidiasFilme,
-    UPLOAD_DIRS
+    deletarFotoCliente,
+    
+    // Diretórios
+    UPLOAD_DIRS,
+    
+    // Criar pastas (caso precise usar separadamente)
+    criarPastaSeNaoExistir
 };
