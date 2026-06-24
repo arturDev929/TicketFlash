@@ -180,10 +180,6 @@ const deletarFotoCliente = (fotoUrl) => {
     return false;
 };
 
-// ============================================================
-// EXPORTAR MÓDULOS
-// ============================================================
-
 module.exports = {
     // Uploads
     uploadMidiaFilme,

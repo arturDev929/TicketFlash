@@ -1829,4 +1829,96 @@ router.get('/client/:id', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /compras:
+ *   get:
+ *     summary: Listar todas as compras
+ *     description: Retorna uma lista de todas as compras
+ *     tags: [Compras]
+ *     responses:
+ *       200:
+ *         description: Lista de compras retornada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 compras:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       codigo:
+ *                         type: string
+ *                         example: "FACT-20260622-1742073511437"
+ *                       data_compra:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2026-06-22T14:30:00.000Z"
+ *                       nome_completo:
+ *                         type: string
+ *                         example: "João Silva"
+ *                       estado_sessao:
+ *                         type: string
+ *                         example: "agendada"
+ *                       total_lugares:
+ *                         type: integer
+ *                         example: 3
+ *                       lugares:
+ *                         type: string
+ *                         example: "A1, A2, A3"
+ *                       valor_total:
+ *                         type: number
+ *                         format: float
+ *                         example: 45.50
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/compras', async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                c.numero_factura AS codigo,
+                c.data_compra,
+                u.nome_completo,
+                s.estado_sessao,
+                COUNT(lo.id_lugar) AS total_lugares,
+                STRING_AGG(l.codigo_lugar, ', ' ORDER BY l.codigo_lugar) AS lugares,
+                c.valor_total
+            FROM compras c 
+            INNER JOIN utilizadores u ON c.id_cliente = u.id_utilizador 
+            INNER JOIN lugares_ocupados lo ON lo.id_compra = c.id_compra
+            INNER JOIN sessoes s ON s.id_sessao = c.id_sessao
+            INNER JOIN lugares l ON l.id_lugar = lo.id_lugar
+            GROUP BY 
+                c.numero_factura, 
+                c.data_compra, 
+                u.nome_completo, 
+                s.estado_sessao,
+                c.valor_total
+            ORDER BY c.data_compra DESC
+        `;
+
+        const result = await conexao.query(sql);
+
+        res.status(200).json({
+            sucesso: true,
+            total: result.rows.length,
+            compras: result.rows
+        });
+
+    } catch (error) {
+        console.error('Erro ao buscar compras:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao buscar compras",
+            erro: error.message
+        });
+    }
+});
+
 module.exports = router;

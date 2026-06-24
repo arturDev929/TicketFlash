@@ -97,19 +97,9 @@ router.post("/", (req, res) => {
                 });
             }
 
-            const payload = {
-                id: usuario.id,
-                nome: usuario.nome,
-                tipo: usuario.tipo
-            };
+            
 
-            if (usuario.tipo === 'funcionario' || usuario.tipo === 'administrador') {
-                payload.id_funcionario = usuario.id_funcionario;
-                payload.cargo = usuario.cargo;
-                payload.numero_funcionario = usuario.numero_funcionario;
-            }
-
-            const token = gerarToken(payload, usuario.tipo);
+            const token = gerarToken(usuario);
 
             const sqlUpdate = `
                 UPDATE utilizadores 
