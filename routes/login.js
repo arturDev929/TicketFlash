@@ -61,12 +61,12 @@ router.post("/", (req, res) => {
                 });
             }
 
-            // ✅ CORRETO - Gerando token com todos os dados
+            
             const token = gerarToken({
                 id: usuario.id,
                 nome: usuario.nome,
                 tipo: usuario.tipo,
-                id_funcionario: usuario.id_funcionario
+                id_funcionario: usuario.id_funcionario 
             });
 
             const sqlUpdate = `
