@@ -1020,6 +1020,53 @@ router.get('/users/:id_utilizador', async (req, res) => {
 
 /**
  * @swagger
+ * /salas:
+ *   get:
+ *     summary: Lista todas as salas
+ *     description: Retorna todas as salas cadastradas.
+ *     tags: [Salas]
+ *     responses:
+ *       200:
+ *         description: Salas encontradas com sucesso
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.get('/salas', async (req, res) => {
+    try {
+        const sql = `
+            SELECT
+                id_sala,
+                nome_sala,
+                capacidade_total,
+                tipo_sala,
+                estado_sala,
+                coluna,
+                fila
+            FROM salas
+            ORDER BY nome_sala ASC
+        `;
+
+        const result = await conexao.query(sql);
+
+        res.status(200).json({
+            sucesso: true,
+            total: result.rows.length,
+            salas: result.rows
+        });
+
+    } catch (error) {
+        console.error("Erro ao buscar salas:", error);
+
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao buscar salas",
+            erro: error.message
+        });
+    }
+});
+
+/**
+ * @swagger
  * /sala/{id}/assentos:
  *   get:
  *     summary: Busca todos os assentos de uma sala

@@ -99,7 +99,11 @@ router.post("/", (req, res) => {
 
             
 
-            const token = gerarToken(usuario);
+            const token = gerarToken({
+              id: usuario.id,
+              nome: usuario.nome,
+              tipo: usuario.tipo,
+            });
 
             const sqlUpdate = `
                 UPDATE utilizadores 
