@@ -1928,4 +1928,974 @@ router.put('/clientRecuperarSenha', async (req,res)=>{
     const email = req.body
 });
 
+
+// ROTAS FEITAS POR GOVEN
+
+// put.js - Adicionar após as rotas existentes
+
+/**
+ * @swagger
+ * /sessoes/{id}:
+ *   put:
+ *     summary: Atualiza uma sessão existente
+ *     description: Permite editar todos os dados de uma sessão, incluindo filme, sala, horários e preço. Verifica conflitos de horário.
+ *     tags: [Sessões]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: UUID da sessão a ser atualizada
+ *         example: "dcad0787-7de1-483e-b64b-aea3b3a87256"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id_filme
+ *               - id_sala
+ *               - data_hora_inicio
+ *               - data_hora_fim
+ *               - tipo_sessao
+ *               - preco
+ *               - estado_sessao
+ *             properties:
+ *               id_filme:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID do filme
+ *                 example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *               id_sala:
+ *                 type: string
+ *                 format: uuid
+ *                 description: UUID da sala
+ *                 example: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
+ *               data_hora_inicio:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Data e hora de início da sessão (ISO 8601)
+ *                 example: "2024-12-25T14:00:00Z"
+ *               data_hora_fim:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Data e hora de fim da sessão (ISO 8601)
+ *                 example: "2024-12-25T16:30:00Z"
+ *               tipo_sessao:
+ *                 type: string
+ *                 enum: [2D, 3D, IMAX, 4DX, D-BOX]
+ *                 description: Tipo de sessão
+ *                 example: "2D"
+ *               preco:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 description: Preço do ingresso
+ *                 example: 24.90
+ *               estado_sessao:
+ *                 type: string
+ *                 enum: [agendada, em_andamento, concluida, cancelada]
+ *                 description: Estado atual da sessão
+ *                 example: "agendada"
+ *               observacoes:
+ *                 type: string
+ *                 description: Observações adicionais sobre a sessão
+ *                 maxLength: 500
+ *                 nullable: true
+ *                 example: "Sessão atualizada para horário especial"
+ *     responses:
+ *       200:
+ *         description: Sessão atualizada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Sessão atualizada com sucesso"
+ *                 sessao:
+ *                   type: object
+ *                   properties:
+ *                     id_sessao:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "dcad0787-7de1-483e-b64b-aea3b3a87256"
+ *                     id_filme:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "0729f7e0-e31e-4c61-91cd-5809d05419eb"
+ *                     id_sala:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "a3b8c9d1-2e4f-4a5b-8c6d-7e9f1a2b3c4d"
+ *                     data_hora_inicio:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-25T14:00:00Z"
+ *                     data_hora_fim:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-25T16:30:00Z"
+ *                     tipo_sessao:
+ *                       type: string
+ *                       example: "2D"
+ *                     preco:
+ *                       type: number
+ *                       example: 24.90
+ *                     estado_sessao:
+ *                       type: string
+ *                       example: "agendada"
+ *                     observacoes:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "Sessão atualizada para horário especial"
+ *                     atualizado_em:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-20T10:30:00Z"
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Data/hora de início deve ser anterior à data/hora de fim"
+ *       401:
+ *         description: Não autorizado - Token inválido ou ausente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Token não fornecido"
+ *       404:
+ *         description: Sessão não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Sessão não encontrada"
+ *       409:
+ *         description: Conflito de horário
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Conflito de horário com outra sessão na mesma sala"
+ *                 conflito:
+ *                   type: object
+ *                   properties:
+ *                     id_sessao:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+ *                     data_hora_inicio:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-25T16:00:00Z"
+ *                     data_hora_fim:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-25T18:30:00Z"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao atualizar sessão"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+
+router.put('/sessoes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { 
+        id_filme, 
+        id_sala, 
+        data_hora_inicio, 
+        data_hora_fim, 
+        tipo_sessao, 
+        preco, 
+        estado_sessao, 
+        observacoes 
+    } = req.body;
+
+    // --- VALIDAÇÕES ---
+    if (!id_filme || !id_sala || !data_hora_inicio || !data_hora_fim || 
+        !tipo_sessao || !preco || !estado_sessao) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Preencha todos os campos obrigatórios"
+        });
+    }
+
+    const inicio = new Date(data_hora_inicio);
+    const fim = new Date(data_hora_fim);
+
+    if (inicio >= fim) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Data/hora de início deve ser anterior à data/hora de fim"
+        });
+    }
+
+    if (preco <= 0) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "O preço deve ser maior que zero"
+        });
+    }
+
+    try {
+        // --- VERIFICAR SE SESSÃO EXISTE ---
+        const checkQuery = `
+            SELECT id_sessao, estado_sessao 
+            FROM sessoes 
+            WHERE id_sessao = $1
+        `;
+        const checkResult = await conexao.query(checkQuery, [id]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Sessão não encontrada"
+            });
+        }
+
+        // Não permitir editar sessões canceladas ou concluídas
+        const sessaoAtual = checkResult.rows[0];
+        if (sessaoAtual.estado_sessao === 'cancelada' || sessaoAtual.estado_sessao === 'concluida') {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: `Não é possível editar uma sessão ${sessaoAtual.estado_sessao}`
+            });
+        }
+
+        // --- VERIFICAR CONFLITOS DE HORÁRIO ---
+        const conflitoQuery = `
+            SELECT id_sessao, data_hora_inicio, data_hora_fim
+            FROM sessoes 
+            WHERE id_sala = $1 
+            AND id_sessao != $2
+            AND estado_sessao NOT IN ('cancelada')
+            AND (
+                (data_hora_inicio <= $3 AND data_hora_fim >= $3) OR
+                (data_hora_inicio <= $4 AND data_hora_fim >= $4) OR
+                (data_hora_inicio >= $3 AND data_hora_fim <= $4) OR
+                (data_hora_inicio BETWEEN $3 AND $4) OR
+                (data_hora_fim BETWEEN $3 AND $4)
+            )
+            ORDER BY data_hora_inicio
+        `;
+
+        const conflitoResult = await conexao.query(conflitoQuery, [
+            id_sala, id, inicio, fim
+        ]);
+
+        if (conflitoResult.rows.length > 0) {
+            const conflito = conflitoResult.rows[0];
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Conflito de horário com outra sessão na mesma sala",
+                conflito: {
+                    id_sessao: conflito.id_sessao,
+                    data_hora_inicio: conflito.data_hora_inicio,
+                    data_hora_fim: conflito.data_hora_fim
+                }
+            });
+        }
+
+        // --- VERIFICAR INTERVALO DE 15 MINUTOS ---
+        // Verificar sessão anterior
+        const sessaoAnteriorQuery = `
+            SELECT id_sessao, data_hora_fim
+            FROM sessoes 
+            WHERE id_sala = $1 
+            AND id_sessao != $2
+            AND estado_sessao NOT IN ('cancelada')
+            AND data_hora_fim <= $3
+            ORDER BY data_hora_fim DESC
+            LIMIT 1
+        `;
+        const anteriorResult = await conexao.query(sessaoAnteriorQuery, [id_sala, id, inicio]);
+
+        if (anteriorResult.rows.length > 0) {
+            const fimAnterior = new Date(anteriorResult.rows[0].data_hora_fim);
+            const intervaloMinimo = new Date(fimAnterior.getTime() + 15 * 60000);
+            
+            if (inicio < intervaloMinimo) {
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: `É necessário aguardar 15 minutos entre sessões. Próximo horário disponível: ${intervaloMinimo.toLocaleString()}`,
+                    proximo_horario_disponivel: intervaloMinimo.toISOString()
+                });
+            }
+        }
+
+        // Verificar próxima sessão
+        const proximaSessaoQuery = `
+            SELECT id_sessao, data_hora_inicio
+            FROM sessoes 
+            WHERE id_sala = $1 
+            AND id_sessao != $2
+            AND estado_sessao NOT IN ('cancelada')
+            AND data_hora_inicio >= $3
+            ORDER BY data_hora_inicio ASC
+            LIMIT 1
+        `;
+        const proximaResult = await conexao.query(proximaSessaoQuery, [id_sala, id, fim]);
+
+        if (proximaResult.rows.length > 0) {
+            const inicioProximo = new Date(proximaResult.rows[0].data_hora_inicio);
+            const fimAtualComIntervalo = new Date(fim.getTime() + 15 * 60000);
+            
+            if (inicioProximo < fimAtualComIntervalo) {
+                return res.status(409).json({
+                    sucesso: false,
+                    mensagem: `A próxima sessão começa muito cedo. É necessário intervalo de 15 minutos entre sessões.`,
+                    horario_minimo_proxima_sessao: fimAtualComIntervalo.toISOString()
+                });
+            }
+        }
+
+        // --- ATUALIZAR SESSÃO ---
+        const updateQuery = `
+            UPDATE sessoes 
+            SET id_filme = $1, 
+                id_sala = $2, 
+                data_hora_inicio = $3, 
+                data_hora_fim = $4, 
+                tipo_sessao = $5, 
+                preco = $6, 
+                estado_sessao = $7, 
+                observacoes = $8,
+                atualizado_em = CURRENT_TIMESTAMP
+            WHERE id_sessao = $9
+            RETURNING *
+        `;
+
+        const result = await conexao.query(updateQuery, [
+            id_filme, id_sala, inicio, fim,
+            tipo_sessao, preco, estado_sessao, observacoes || null, id
+        ]);
+
+        res.status(200).json({
+            sucesso: true,
+            mensagem: "Sessão atualizada com sucesso",
+            sessao: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro ao atualizar sessão:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao atualizar sessão",
+            erro: error.message
+        });
+    }
+});
+
+// put.js
+
+/**
+ * @swagger
+ * /ingressos/{id}/cancelar:
+ *   put:
+ *     summary: Cancela um ingresso/compra
+ *     description: Cancela um ingresso específico pelo número da factura ou ID da compra. Libera os lugares ocupados e atualiza o status da compra.
+ *     tags: [Ingressos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Número da factura ou ID da compra
+ *         example: "FACT-20261220-1742073511437"
+ *     responses:
+ *       200:
+ *         description: Ingresso cancelado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Ingresso cancelado com sucesso"
+ *                 compra:
+ *                   type: object
+ *                   properties:
+ *                     id_compra:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440001"
+ *                     numero_factura:
+ *                       type: string
+ *                       example: "FACT-20261220-1742073511437"
+ *                     estado_pagamento:
+ *                       type: string
+ *                       example: "cancelado"
+ *                     data_cancelamento:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-12-20T10:30:00Z"
+ *                     valor_reembolsado:
+ *                       type: number
+ *                       format: float
+ *                       example: 45.50
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "ID da compra é obrigatório"
+ *       401:
+ *         description: Não autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Token não fornecido"
+ *       404:
+ *         description: Ingresso não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Ingresso não encontrado"
+ *       409:
+ *         description: Ingresso não pode ser cancelado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Não é possível cancelar ingressos para sessões já iniciadas"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao cancelar ingresso"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+
+router.put('/ingressos/:id/cancelar', async (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "ID da compra ou número da factura é obrigatório"
+        });
+    }
+
+    try {
+        // --- BUSCAR COMPRA ---
+        const compraQuery = `
+            SELECT c.id_compra, 
+                   c.numero_factura, 
+                   c.estado_pagamento, 
+                   c.valor_total,
+                   c.id_sessao,
+                   s.data_hora_inicio,
+                   s.estado_sessao
+            FROM compras c
+            INNER JOIN sessoes s ON s.id_sessao = c.id_sessao
+            WHERE c.numero_factura = $1 OR c.id_compra = $1
+        `;
+        const compraResult = await conexao.query(compraQuery, [id]);
+
+        if (compraResult.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Ingresso não encontrado"
+            });
+        }
+
+        const compra = compraResult.rows[0];
+
+        // Verificar se já foi cancelado
+        if (compra.estado_pagamento === 'cancelado') {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Este ingresso já foi cancelado"
+            });
+        }
+
+        // Verificar se a sessão já passou
+        const agora = new Date();
+        const inicioSessao = new Date(compra.data_hora_inicio);
+        if (agora >= inicioSessao) {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Não é possível cancelar ingressos para sessões já iniciadas"
+            });
+        }
+
+        // Verificar se a sessão foi cancelada
+        if (compra.estado_sessao === 'cancelada') {
+            return res.status(409).json({
+                sucesso: false,
+                mensagem: "Esta sessão foi cancelada. O reembolso será processado automaticamente."
+            });
+        }
+
+        // --- CANCELAR COMPRA ---
+        const updateCompraQuery = `
+            UPDATE compras 
+            SET estado_pagamento = 'cancelado',
+                data_cancelamento = CURRENT_TIMESTAMP,
+                valor_reembolsado = valor_total
+            WHERE id_compra = $1
+            RETURNING *
+        `;
+        const compraAtualizada = await conexao.query(updateCompraQuery, [compra.id_compra]);
+
+        // --- LIBERAR LUGARES ---
+        const liberarLugaresQuery = `
+            UPDATE lugares_ocupados 
+            SET status = 'cancelado'
+            WHERE id_compra = $1
+            RETURNING id_lugar, codigo_lugar
+        `;
+        const lugaresLiberados = await conexao.query(liberarLugaresQuery, [compra.id_compra]);
+
+        res.status(200).json({
+            sucesso: true,
+            mensagem: "Ingresso cancelado com sucesso",
+            compra: compraAtualizada.rows[0],
+            lugares_liberados: lugaresLiberados.rows,
+            reembolso: {
+                valor: compra.valor_total,
+                data: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        console.error('Erro ao cancelar ingresso:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao cancelar ingresso",
+            erro: error.message
+        });
+    }
+});
+
+
+// put.js - Substituir a função vazia
+
+/**
+ * @swagger
+ * /clientSenha/{id}:
+ *   put:
+ *     summary: Altera a senha de um cliente
+ *     description: Permite que um cliente altere sua própria senha fornecendo a senha atual e a nova senha.
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID do cliente
+ *         example: "550e8400-e29b-41d4-a716-446655440000"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - senha_atual
+ *               - nova_senha
+ *             properties:
+ *               senha_atual:
+ *                 type: string
+ *                 format: password
+ *                 description: Senha atual do cliente
+ *                 example: "minhaSenha123"
+ *               nova_senha:
+ *                 type: string
+ *                 format: password
+ *                 description: Nova senha (mínimo 6 caracteres)
+ *                 example: "novaSenha456"
+ *     responses:
+ *       200:
+ *         description: Senha alterada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Senha alterada com sucesso"
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Todos os campos são obrigatórios"
+ *       401:
+ *         description: Senha atual incorreta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Senha atual incorreta"
+ *       404:
+ *         description: Cliente não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Cliente não encontrado"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao alterar senha"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+
+router.put('/clientSenha/:id', async (req, res) => {
+    const { id } = req.params;
+    const { senha_atual, nova_senha } = req.body;
+
+    // --- VALIDAÇÕES ---
+    if (!senha_atual || !nova_senha) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Senha atual e nova senha são obrigatórias"
+        });
+    }
+
+    if (nova_senha.length < 6) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "A nova senha deve ter pelo menos 6 caracteres"
+        });
+    }
+
+    try {
+        // --- VERIFICAR SE CLIENTE EXISTE ---
+        const clienteQuery = `
+            SELECT id_utilizador, senha_hash, nome_completo, email
+            FROM utilizadores 
+            WHERE id_utilizador = $1 AND tipo_utilizador = 'cliente'
+        `;
+        const clienteResult = await conexao.query(clienteQuery, [id]);
+
+        if (clienteResult.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Cliente não encontrado"
+            });
+        }
+
+        const cliente = clienteResult.rows[0];
+
+        // --- VERIFICAR SENHA ATUAL ---
+        const senhaValida = await compararSenhas(senha_atual, cliente.senha_hash);
+        if (!senhaValida) {
+            return res.status(401).json({
+                sucesso: false,
+                mensagem: "Senha atual incorreta"
+            });
+        }
+
+        // --- CRIPTOGRAFAR NOVA SENHA ---
+        const novaSenhaHash = await criptografarSenha(nova_senha);
+
+        // --- ATUALIZAR SENHA ---
+        const updateQuery = `
+            UPDATE utilizadores 
+            SET senha_hash = $1,
+                senha_atualizada_em = CURRENT_TIMESTAMP
+            WHERE id_utilizador = $2
+            RETURNING id_utilizador, nome_completo, email
+        `;
+        const result = await conexao.query(updateQuery, [novaSenhaHash, id]);
+
+        res.status(200).json({
+            sucesso: true,
+            mensagem: "Senha alterada com sucesso",
+            cliente: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro ao alterar senha do cliente:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao alterar senha",
+            erro: error.message
+        });
+    }
+});
+
+// put.js - Substituir a função vazia
+
+/**
+ * @swagger
+ * /clientRecuperarSenha:
+ *   put:
+ *     summary: Recupera a senha de um cliente
+ *     description: Envia um email com link para redefinição de senha para o cliente.
+ *     tags: [Clientes]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email do cliente
+ *                 example: "joao.silva@email.com"
+ *     responses:
+ *       200:
+ *         description: Email de recuperação enviado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Email de recuperação enviado com sucesso"
+ *       400:
+ *         description: Email não fornecido
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Email é obrigatório"
+ *       404:
+ *         description: Cliente não encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Cliente não encontrado"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao recuperar senha"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+
+
+// DAR ATENÇÃO: A função de envio de email ainda não foi implementada. É necessário integrar com um serviço de email (como SendGrid, Mailgun, etc.) para enviar o link de recuperação ao cliente.
+router.put('/clientRecuperarSenha', async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            sucesso: false,
+            mensagem: "Email é obrigatório"
+        });
+    }
+
+    try {
+        // --- VERIFICAR SE CLIENTE EXISTE ---
+        const clienteQuery = `
+            SELECT id_utilizador, nome_completo, email
+            FROM utilizadores 
+            WHERE email = $1 AND tipo_utilizador = 'cliente'
+        `;
+        const clienteResult = await conexao.query(clienteQuery, [email]);
+
+        if (clienteResult.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Cliente não encontrado"
+            });
+        }
+
+        const cliente = clienteResult.rows[0];
+
+        // --- GERAR TOKEN DE RECUPERAÇÃO ---
+        const tokenRecuperacao = crypto.randomBytes(32).toString('hex');
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+
+        // --- SALVAR TOKEN NO BANCO ---
+        const updateQuery = `
+            UPDATE utilizadores 
+            SET token_recuperacao = $1,
+                token_recuperacao_expiracao = $2
+            WHERE id_utilizador = $3
+        `;
+        await conexao.query(updateQuery, [tokenRecuperacao, expiracao, cliente.id_utilizador]);
+
+        // --- ENVIAR EMAIL DE RECUPERAÇÃO ---
+        const linkRecuperacao = `${process.env.FRONTEND_URL}/redefinir-senha?token=${tokenRecuperacao}`;
+        
+        // Nota: Implementar envio de email
+        // await enviarEmailRecuperacao(email, cliente.nome_completo, linkRecuperacao);
+
+        console.log(`🔑 Link de recuperação para ${email}: ${linkRecuperacao}`);
+
+        res.status(200).json({
+            sucesso: true,
+            mensagem: "Email de recuperação enviado com sucesso",
+            // Em desenvolvimento, retornar o token
+            ...(process.env.NODE_ENV !== 'production' && { token: tokenRecuperacao })
+        });
+
+    } catch (error) {
+        console.error('Erro ao recuperar senha:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao recuperar senha",
+            erro: error.message
+        });
+    }
+});
+
+
 module.exports = router;

@@ -4,42 +4,6 @@ const conexao = require("../infra/conexao");
 const { compararSenhas } = require("../utils/senha");
 const { gerarToken } = require("../utils/token");
 
-/**
- * @swagger
- * /login:
- *   post:
- *     summary: Login de usuario
- *     description: Autentica administrador, funcionario ou cliente
- *     tags: [Autenticacao]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 example: "admin@cinema.com"
- *               password:
- *                 type: string
- *                 example: "123456"
- *     responses:
- *       200:
- *         description: Login realizado com sucesso
- *       400:
- *         description: Campos obrigatorios
- *       401:
- *         description: Credenciais invalidas
- *       403:
- *         description: Conta bloqueada ou inativa
- *       500:
- *         description: Erro no servidor
- */
-
 router.post("/", (req, res) => {
     const { email, password } = req.body;
 
@@ -97,12 +61,12 @@ router.post("/", (req, res) => {
                 });
             }
 
-            
-
+            // ✅ CORRETO - Gerando token com todos os dados
             const token = gerarToken({
-              id: usuario.id,
-              nome: usuario.nome,
-              tipo: usuario.tipo,
+                id: usuario.id,
+                nome: usuario.nome,
+                tipo: usuario.tipo,
+                id_funcionario: usuario.id_funcionario
             });
 
             const sqlUpdate = `
@@ -149,42 +113,5 @@ router.post("/", (req, res) => {
         }
     });
 });
-
-async function registrarLogFalha(id_utilizador, ip) {
-    const sql = `
-        INSERT INTO logs_funcionarios 
-        (id_log, id_funcionario, accao, tabela_afectada, registo_id, ip_origem, detalhes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `;
-    
-    const id_log = require('crypto').randomUUID();
-    const detalhes = JSON.stringify({ 
-        tipo: "tentativa_login_falha",
-        email: "provided",
-        timestamp: new Date().toISOString()
-    });
-    
-    try {
-        const sqlBusca = "SELECT id_funcionario FROM funcionarios WHERE id_utilizador = $1";
-        const result = await new Promise((resolve, reject) => {
-            conexao.query(sqlBusca, [id_utilizador], (err, res) => {
-                if (err) reject(err);
-                else resolve(res);
-            });
-        });
-        
-        if (result.rows.length > 0) {
-            const id_funcionario = result.rows[0].id_funcionario;
-            await new Promise((resolve, reject) => {
-                conexao.query(sql, [id_log, id_funcionario, 'tentativa_login_falha', 'utilizadores', id_utilizador, ip, detalhes], (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-        }
-    } catch (error) {
-        console.error("Erro ao registrar log de falha:", error.message);
-    }
-}
 
 module.exports = router;

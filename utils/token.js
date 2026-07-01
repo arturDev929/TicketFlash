@@ -1,15 +1,16 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-const gerarToken = (usuario, tipo) => {
+const gerarToken = (dados) => {
     if (!process.env.JWT_SECRET) {
         throw new Error('JWT_SECRET nao configurado');
     }
 
     const payload = {
-        id: usuario.id,
-        nome: usuario.nome,
-        tipo: tipo
+        id: dados.id,
+        nome: dados.nome,
+        tipo: dados.tipo || null,
+        id_funcionario: dados.id_funcionario || null
     };
     
     return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "24h" });

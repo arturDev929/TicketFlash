@@ -1065,6 +1065,155 @@ router.get('/salas', async (req, res) => {
     }
 });
 
+// get.js
+
+/**
+ * @swagger
+ * /salas/{id}:
+ *   get:
+ *     summary: Busca uma sala específica por ID
+ *     description: Retorna os dados detalhados de uma sala específica sem os assentos.
+ *     tags: [Salas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: ID da sala
+ *         example: "550e8400-e29b-41d4-a716-446655440000"
+ *     responses:
+ *       200:
+ *         description: Sala encontrada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 sala:
+ *                   type: object
+ *                   properties:
+ *                     id_sala:
+ *                       type: string
+ *                       format: uuid
+ *                       example: "550e8400-e29b-41d4-a716-446655440000"
+ *                     nome_sala:
+ *                       type: string
+ *                       example: "Sala IMAX 1"
+ *                     capacidade_total:
+ *                       type: integer
+ *                       example: 150
+ *                     tipo_sala:
+ *                       type: string
+ *                       enum: [NORMAL, VIP, 3D, IMAX]
+ *                       example: "IMAX"
+ *                     estado_sala:
+ *                       type: string
+ *                       enum: [operacional, ATIVA, INATIVA, MANUTENCAO]
+ *                       example: "operacional"
+ *                     coluna:
+ *                       type: integer
+ *                       example: 10
+ *                     fila:
+ *                       type: integer
+ *                       example: 15
+ *                     total_assentos:
+ *                       type: integer
+ *                       example: 150
+ *                     assentos_ativos:
+ *                       type: integer
+ *                       example: 148
+ *                     assentos_inativos:
+ *                       type: integer
+ *                       example: 2
+ *       404:
+ *         description: Sala não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Sala não encontrada"
+ *       500:
+ *         description: Erro interno do servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: "Erro ao buscar sala"
+ *                 erro:
+ *                   type: string
+ *                   example: "Database error"
+ */
+
+router.get('/salas/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // --- VALIDAR UUID ---
+        const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+        if (!uuidRegex.test(id)) {
+            return res.status(400).json({
+                sucesso: false,
+                mensagem: "ID inválido. Deve ser um UUID válido."
+            });
+        }
+
+        // --- BUSCAR SALA ---
+        const salaQuery = `
+            SELECT 
+                id_sala,
+                nome_sala,
+                capacidade_total,
+                tipo_sala,
+                estado_sala,
+                coluna,
+                fila,
+                (SELECT COUNT(*) FROM lugares WHERE id_sala = salas.id_sala) as total_assentos,
+                (SELECT COUNT(*) FROM lugares WHERE id_sala = salas.id_sala AND estado_permanente = 'activo') as assentos_ativos,
+                (SELECT COUNT(*) FROM lugares WHERE id_sala = salas.id_sala AND estado_permanente = 'inactivo') as assentos_inativos
+            FROM salas
+            WHERE id_sala = $1
+        `;
+        const result = await conexao.query(salaQuery, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                sucesso: false,
+                mensagem: "Sala não encontrada"
+            });
+        }
+
+        res.status(200).json({
+            sucesso: true,
+            sala: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Erro ao buscar sala:', error);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: "Erro ao buscar sala",
+            erro: error.message
+        });
+    }
+});
+
 /**
  * @swagger
  * /sala/{id}/assentos:
