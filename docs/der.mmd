@@ -1,0 +1,114 @@
+erDiagram
+    UTILIZADORES ||--o| FUNCIONARIOS : "e funcionario"
+    UTILIZADORES ||--o{ COMPRAS : "realiza"
+    FUNCIONARIOS ||--o{ FILMES : "cadastra"
+    FUNCIONARIOS ||--o{ SESSOES : "cria"
+    FUNCIONARIOS ||--o{ LOGS_FUNCIONARIOS : "gera"
+    FILMES ||--o{ FILMES_GENEROS : "tem"
+    GENEROS ||--o{ FILMES_GENEROS : "classifica"
+    FILMES ||--o{ SESSOES : "e exibido em"
+    FILMES ||--o{ HISTORICO_EXIBICOES : "possui historico"
+    SALAS ||--o{ LUGARES : "contem"
+    SALAS ||--o{ SESSOES : "recebe"
+    SESSOES ||--o{ COMPRAS : "gera"
+    SESSOES ||--o{ BILHETES : "emite"
+    SESSOES ||--o{ LUGARES_OCUPADOS : "ocupa"
+    COMPRAS ||--o{ BILHETES : "contem"
+    COMPRAS ||--o{ LUGARES_OCUPADOS : "reserva"
+    BILHETES ||--o{ BILHETES_LUGARES : "associa"
+    LUGARES ||--o{ BILHETES_LUGARES : "associa"
+    LUGARES ||--o{ LUGARES_OCUPADOS : "e ocupado em"
+
+    UTILIZADORES {
+        varchar id_utilizador PK
+        varchar nome_completo
+        varchar email UK
+        varchar senha_hash
+        varchar telefone
+        text tipo_utilizador
+        text estado_conta
+    }
+    FUNCIONARIOS {
+        varchar id_funcionario PK
+        varchar id_utilizador FK
+        varchar cargo
+        varchar numero_funcionario UK
+    }
+    GENEROS {
+        varchar id_genero PK
+        varchar nome_genero UK
+        text descricao
+    }
+    FILMES {
+        varchar id_filme PK
+        varchar titulo
+        int duracao_minutos
+        int ano_lancamento
+        varchar cadastrado_por FK
+        text estado_exibicao
+        boolean destaque
+    }
+    FILMES_GENEROS {
+        varchar id_filme PK_FK
+        varchar id_genero PK_FK
+    }
+    SALAS {
+        varchar id_sala PK
+        varchar nome_sala
+        int capacidade_total
+        text estado_sala
+    }
+    LUGARES {
+        varchar id_lugar PK
+        varchar id_sala FK
+        varchar codigo_lugar
+        text estado_permanente
+    }
+    SESSOES {
+        varchar id_sessao PK
+        varchar id_filme FK
+        varchar id_sala FK
+        timestamp data_hora_inicio
+        numeric preco
+        text estado_sessao
+        varchar criado_por FK
+    }
+    COMPRAS {
+        varchar id_compra PK
+        varchar id_cliente FK
+        varchar id_sessao FK
+        numeric valor_total
+        text estado_pagamento
+        varchar numero_factura UK
+        text qr_code
+    }
+    BILHETES {
+        varchar id_bilhete PK
+        varchar id_compra FK
+        varchar id_sessao FK
+        numeric preco_pago
+        text estado_uso
+    }
+    BILHETES_LUGARES {
+        varchar id_bilhete PK_FK
+        varchar id_lugar PK_FK
+    }
+    LUGARES_OCUPADOS {
+        varchar id_lo PK
+        varchar id_lugar FK
+        varchar id_sessao FK
+        varchar status
+        varchar id_compra FK
+    }
+    HISTORICO_EXIBICOES {
+        varchar id_historico PK
+        varchar id_filme FK
+        int total_sessoes
+        numeric receita_total
+    }
+    LOGS_FUNCIONARIOS {
+        varchar id_log PK
+        varchar id_funcionario FK
+        varchar accao
+        timestamp data_accao
+    }
