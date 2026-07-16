@@ -1,0 +1,273 @@
+{
+  "info": {
+    "name": "TicketFlash API",
+    "description": "Colecção completa dos endpoints do backend TicketFlash (ONJANGO-DEV-02). Defina as variáveis de colecção baseUrl e token antes de usar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" },
+    { "key": "idFilme", "value": "" },
+    { "key": "idSessao", "value": "" },
+    { "key": "idSala", "value": "" },
+    { "key": "idCompra", "value": "" },
+    { "key": "idUtilizador", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/login",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@exemplo.com\",\n  \"senha\": \"suaSenha123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Registar Cliente",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/registerClient",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome_completo\": \"Nome do Cliente\",\n  \"email\": \"cliente@exemplo.com\",\n  \"senha_hash\": \"suaSenha123\",\n  \"confirmar_senha_hash\": \"suaSenha123\",\n  \"telefone\": \"923456789\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Registar Funcionário/Admin (requer admin)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome_completo\": \"Nome do Funcionário\",\n  \"email\": \"funcionario@exemplo.com\",\n  \"tipo_utilizador\": \"funcionario\",\n  \"cargo\": \"Bilheteira\",\n  \"numero_funcionario\": \"F-0001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Alterar Senha",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/alterar-senha",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_utilizador\": \"{{idUtilizador}}\",\n  \"senha_atual\": \"senhaAntiga\",\n  \"nova_senha\": \"senhaNova123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Filmes",
+      "item": [
+        { "name": "Listar filmes", "request": { "method": "GET", "url": "{{baseUrl}}/movies", "auth": { "type": "noauth" } } },
+        { "name": "Filme por ID", "request": { "method": "GET", "url": "{{baseUrl}}/movies/{{idFilme}}", "auth": { "type": "noauth" } } },
+        { "name": "Filmes disponíveis", "request": { "method": "GET", "url": "{{baseUrl}}/disponivel", "auth": { "type": "noauth" } } },
+        { "name": "Filmes indisponíveis", "request": { "method": "GET", "url": "{{baseUrl}}/indisponivel", "auth": { "type": "noauth" } } },
+        { "name": "Filmes em breve", "request": { "method": "GET", "url": "{{baseUrl}}/brevemente", "auth": { "type": "noauth" } } },
+        { "name": "Filmes em destaque", "request": { "method": "GET", "url": "{{baseUrl}}/destaque", "auth": { "type": "noauth" } } },
+        {
+          "name": "Criar filme (staff)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/filme",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Novo Filme\",\n  \"sinopse\": \"Sinopse do filme\",\n  \"duracao_minuto\": 120,\n  \"ano_lancamento\": 2026,\n  \"classificacao_etaria\": \"12\",\n  \"cartaz_url\": \"https://exemplo.com/cartaz.jpg\",\n  \"id_funcionario\": \"<uuid-funcionario>\",\n  \"id_genero\": [\"<uuid-genero>\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Actualizar filme (staff)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/filme/{{idFilme}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"titulo\": \"Título Actualizado\"\n}" }
+          }
+        },
+        { "name": "Remover filme (staff)", "request": { "method": "DELETE", "url": "{{baseUrl}}/filme/{{idFilme}}" } }
+      ]
+    },
+    {
+      "name": "Géneros",
+      "item": [
+        { "name": "Listar géneros", "request": { "method": "GET", "url": "{{baseUrl}}/generos", "auth": { "type": "noauth" } } },
+        {
+          "name": "Criar género (staff)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/genero",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome_genero\": \"Ficção Científica\",\n  \"descricao\": \"Filmes de ficção científica\"\n}" }
+          }
+        },
+        {
+          "name": "Actualizar género (staff)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/genero/:id",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome_genero\": \"Ficção Científica\",\n  \"descricao\": \"Actualizado\"\n}" }
+          }
+        },
+        { "name": "Remover género (staff)", "request": { "method": "DELETE", "url": "{{baseUrl}}/genero/:id" } }
+      ]
+    },
+    {
+      "name": "Salas e Lugares",
+      "item": [
+        { "name": "Listar salas", "request": { "method": "GET", "url": "{{baseUrl}}/salas", "auth": { "type": "noauth" } } },
+        { "name": "Assentos de uma sala", "request": { "method": "GET", "url": "{{baseUrl}}/sala/{{idSala}}/assentos", "auth": { "type": "noauth" } } },
+        {
+          "name": "Criar sala (staff)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/salas",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome_sala\": \"Sala 1\",\n  \"capacidade_total\": 50,\n  \"tipo_sala\": \"NORMAL\",\n  \"coluna\": 10,\n  \"fila\": 5\n}" }
+          }
+        },
+        {
+          "name": "Actualizar sala (staff)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/salas/{{idSala}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome_sala\": \"Sala 1 - VIP\"\n}" }
+          }
+        },
+        { "name": "Remover sala (staff)", "request": { "method": "DELETE", "url": "{{baseUrl}}/salas/{{idSala}}" } },
+        {
+          "name": "Actualizar estado de um lugar (staff)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/lugares/:id_lugar",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"estado_permanente\": \"manutencao\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessões",
+      "item": [
+        { "name": "Listar filmes com sessões", "request": { "method": "GET", "url": "{{baseUrl}}/sessoes", "auth": { "type": "noauth" } } },
+        { "name": "Sessões completas de um filme", "request": { "method": "GET", "url": "{{baseUrl}}/sessoes-completas/{{idFilme}}", "auth": { "type": "noauth" } } },
+        {
+          "name": "Criar sessão (staff)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/sessoes",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_filme\": \"{{idFilme}}\",\n  \"id_sala\": \"{{idSala}}\",\n  \"data_hora_inicio\": \"2026-08-01T20:00:00.000Z\",\n  \"data_hora_fim\": \"2026-08-01T22:00:00.000Z\",\n  \"tipo_sessao\": \"normal\",\n  \"preco\": 1500,\n  \"estado_sessao\": \"agendada\",\n  \"criado_por\": \"<uuid-funcionario>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Actualizar sessão (staff)",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/sessoes/{{idSessao}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"preco\": 2000\n}" }
+          }
+        },
+        {
+          "name": "Mudar estado da sessão (staff)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/sessoes/{{idSessao}}/estado",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"estado_sessao\": \"em_andamento\"\n}" }
+          }
+        },
+        { "name": "Cancelar sessão (staff)", "request": { "method": "DELETE", "url": "{{baseUrl}}/sessoes/{{idSessao}}" } }
+      ]
+    },
+    {
+      "name": "Compras e Bilhetes",
+      "item": [
+        {
+          "name": "Criar compra (cliente)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/compras",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pagamento\": \"multicaixa\",\n  \"sessao_id\": \"{{idSessao}}\",\n  \"lugares\": [\n    { \"id_lugar\": \"<uuid-lugar-1>\" },\n    { \"id_lugar\": \"<uuid-lugar-2>\" }\n  ]\n}"
+            }
+          }
+        },
+        { "name": "Listar compras (staff)", "request": { "method": "GET", "url": "{{baseUrl}}/compras" } },
+        { "name": "Estatísticas de compras (staff)", "request": { "method": "GET", "url": "{{baseUrl}}/compras/estatisticas" } },
+        { "name": "Compras de um cliente", "request": { "method": "GET", "url": "{{baseUrl}}/cliente/{{idUtilizador}}/compras" } },
+        {
+          "name": "Cancelar ingresso/compra",
+          "request": { "method": "PUT", "url": "{{baseUrl}}/ingressos/{{idCompra}}/cancelar" }
+        },
+        {
+          "name": "Consultar bilhete (por código de fatura, id_compra ou id_bilhete)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/bilhetes/:codigo" }
+        },
+        {
+          "name": "Validar bilhete (staff, leitor de QR)",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/bilhetes/:codigo/validar" }
+        }
+      ]
+    },
+    {
+      "name": "Utilizadores",
+      "item": [
+        { "name": "Listar utilizadores (staff)", "request": { "method": "GET", "url": "{{baseUrl}}/users" } },
+        { "name": "Utilizador por ID", "request": { "method": "GET", "url": "{{baseUrl}}/users/{{idUtilizador}}" } },
+        {
+          "name": "Actualizar utilizador",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/user/{{idUtilizador}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Novo Nome\",\n  \"telefone\": \"923000000\"\n}" }
+          }
+        },
+        { "name": "Remover utilizador (admin)", "request": { "method": "DELETE", "url": "{{baseUrl}}/users/{{idUtilizador}}" } },
+        { "name": "Perfil de cliente", "request": { "method": "GET", "url": "{{baseUrl}}/client/{{idUtilizador}}" } },
+        {
+          "name": "Actualizar perfil de cliente",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/client/{{idUtilizador}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome_completo\": \"Novo Nome\",\n  \"telefone\": \"923000000\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auditoria",
+      "item": [
+        { "name": "Listar logs (staff)", "request": { "method": "GET", "url": "{{baseUrl}}/logs?limite=100" } }
+      ]
+    }
+  ]
+}
