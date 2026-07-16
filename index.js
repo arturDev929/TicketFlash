@@ -30,19 +30,25 @@ function getLocalIP() {
 
 const LOCAL_IP = getLocalIP();
 
+// 🔥 LISTA DE ORIGENS PERMITIDAS - SIMPLIFICADA
 const allowedOrigins = [
-    FRONT_URL,
+    'http://localhost:3000',
+    'http://localhost:5000',
     `http://${LOCAL_IP}:3000`,
-    `https://ticketflash.onrender.com`,
-    `https://tickt-flash-3gd8.vercel.app`,
-    `http://localhost:${PORT}`,
-    `http://${LOCAL_IP}:${PORT}`,
+    `http://${LOCAL_IP}:5000`,
+    'https://ticketflash.onrender.com',
+    'https://tickt-flash-3gd8.vercel.app',  // URL do seu frontend
+    'https://tickt-flash-3gd8.vercel.app/', // Com barra no final
+    'https://tickt-flash.vercel.app',       // Possível URL sem o hash
+    /^https:\/\/.*\.vercel\.app$/,           // Qualquer subdomínio no Vercel
     /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/,
     /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/
 ];
 
+// 🔥 CONFIGURAÇÃO CORS CORRETA (apenas uma vez)
 app.use(cors({
     origin: function (origin, callback) {
+        // Permite requisições sem origin (ex: Postman, Insomnia)
         if (!origin) return callback(null, true);
 
         const isAllowed = allowedOrigins.some(allowed => {
@@ -55,7 +61,8 @@ app.use(cors({
         if (isAllowed) {
             callback(null, true);
         } else {
-            console.log('Origem não permitida pelo CORS:', origin);
+            console.log('❌ Origem bloqueada pelo CORS:', origin);
+            console.log('🔍 Origens permitidas:', allowedOrigins);
             callback(new Error('Não permitido pelo CORS'));
         }
     },
@@ -64,8 +71,9 @@ app.use(cors({
     credentials: true
 }));
 
+// ❌ REMOVA ESTA LINHA - ela sobrescreve a configuração acima!
+// app.use(cors());  // <-- COMENTE OU REMOVA ESTA LINHA
 
-app.use(cors());
 app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -77,7 +85,7 @@ app.use('/', getRouter);
 app.use('/', putRouter);
 
 app.listen(PORT, () => {
-    console.log(`Servidor: http://localhost:${PORT}`);
-    console.log(`Docs: http://localhost:${PORT}/api-docs`);
-    console.log(`Rede: http://${LOCAL_IP}:${PORT}`);
+    console.log(`✅ Servidor: http://localhost:${PORT}`);
+    console.log(`📚 Docs: http://localhost:${PORT}/api-docs`);
+    console.log(`🌐 Rede: http://${LOCAL_IP}:${PORT}`);
 });
