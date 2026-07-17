@@ -39,7 +39,8 @@ const allowedOrigins = [
     'https://ticketflash.onrender.com',
     'https://tickt-flash-3gd8.vercel.app',  // URL do seu frontend
     'https://tickt-flash-3gd8.vercel.app/', // Com barra no final
-    'https://tickt-flash.vercel.app',       // Possível URL sem o hash
+    'https://tickt-flash.vercel.app',
+    'https://tickt-flash.vercel.app/',
     /^https:\/\/.*\.vercel\.app$/,           // Qualquer subdomínio no Vercel
     /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/,
     /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/
