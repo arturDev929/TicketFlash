@@ -36,7 +36,7 @@ router.post("/", (req, res) => {
 
         const usuario = usuarios[0];
 
-        if (usuario.estado_conta !== 'activo') {
+        if (usuario.estado_conta !== 'ativo') {
             let mensagem = "Conta ";
             if (usuario.estado_conta === 'inactivo') {
                 mensagem += "inativa";
@@ -113,5 +113,141 @@ router.post("/", (req, res) => {
         }
     });
 });
+
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Autentica um usuário no sistema
+ *     description: Realiza o login do usuário verificando credenciais e retornando um token JWT para autenticação nas demais rotas
+ *     tags: [Autenticação]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email do usuário cadastrado
+ *                 example: joao.silva@empresa.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Senha do usuário
+ *                 example: Senha123!
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: true
+ *                 tipoUsuario:
+ *                   type: string
+ *                   enum: [funcionario, administrador, cliente]
+ *                   example: funcionario
+ *                 token:
+ *                   type: string
+ *                   description: Token JWT para autenticação
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibm9tZSI6Ikpvw6NvIFNpbHZhIiwidGlwbyI6ImZ1bmNpb25hcmlvIiwiaWRfZnVuY2lvbmFyaW8iOjEsImlhdCI6MTY5MDAwMDAwMCwiZXhwIjoxNjkwMDAzNjAwfQ...
+ *                 dados:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: ID do usuário
+ *                       example: 1
+ *                     nome:
+ *                       type: string
+ *                       description: Nome completo do usuário
+ *                       example: João Silva
+ *                     email:
+ *                       type: string
+ *                       description: Email do usuário
+ *                       example: joao.silva@empresa.com
+ *                     tipo:
+ *                       type: string
+ *                       description: Tipo de usuário
+ *                       enum: [funcionario, administrador, cliente]
+ *                       example: funcionario
+ *                     contacto:
+ *                       type: string
+ *                       description: Número de telefone do usuário (opcional)
+ *                       example: +244 923456789
+ *                     cargo:
+ *                       type: string
+ *                       description: Cargo do usuário (apenas para funcionários e administradores)
+ *                       example: Desenvolvedor Sênior
+ *                     id_funcionario:
+ *                       type: integer
+ *                       description: ID do funcionário (apenas para funcionários e administradores)
+ *                       example: 1
+ *                     numero_funcionario:
+ *                       type: string
+ *                       description: Número de matrícula do funcionário (apenas para funcionários e administradores)
+ *                       example: FUNC-001
+ *       400:
+ *         description: Campos obrigatórios não preenchidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: Preencha todos os campos
+ *       401:
+ *         description: Credenciais inválidas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: Email não cadastrado
+ *       403:
+ *         description: Conta bloqueada ou inativa
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: Conta inativa. Contacte o administrador.
+ *       500:
+ *         description: Erro interno no servidor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sucesso:
+ *                   type: boolean
+ *                   example: false
+ *                 mensagem:
+ *                   type: string
+ *                   example: Erro ao buscar usuário
+ */
 
 module.exports = router;

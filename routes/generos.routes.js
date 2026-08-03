@@ -6,6 +6,7 @@ const { verificarToken, autorizar } = require("../middleware/authMiddleware");
 const { registrarLog } = require("../utils/log");
 const { v4: uuidv4 } = require("uuid");
 
+// ROTA PÚBLICA - Não requer autenticação
 router.get('/generos', async (req, res) => {
     try {
         const query = `
