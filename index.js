@@ -53,6 +53,7 @@ const allowedOrigins = [
     '/^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/',
     '/^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/',
     'http://localhost:5173',
+    'http://localhost:5173/',
 ];
 
 // 🔥 CONFIGURAÇÃO CORS CORRETA (apenas uma vez)
@@ -76,7 +77,7 @@ app.use(cors({
             callback(new Error('Não permitido pelo CORS'));
         }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // ✅ Adicionar PATCH
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
