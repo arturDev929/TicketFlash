@@ -54,6 +54,8 @@ const allowedOrigins = [
     '/^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$/',
     'http://localhost:5173',
     'http://localhost:5173/',
+    'https://ticket-flash-front-henna.vercel.app/',
+    'https://ticket-flash-front-henna.vercel.app',
 ];
 
 // 🔥 CONFIGURAÇÃO CORS CORRETA (apenas uma vez)
